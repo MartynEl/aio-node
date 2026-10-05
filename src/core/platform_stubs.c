@@ -1,3 +1,8 @@
+#include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include "platform/platform.h"
+
 /* Add to src/core/platform_stubs.c to emulate hardware flash page behavior on PC host */
 
 #define STUB_FLASH_SECTOR_SIZE 1024u

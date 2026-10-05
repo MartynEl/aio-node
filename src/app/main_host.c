@@ -5,6 +5,7 @@
 #include "platform/pwm_port.h"
 #include "service/logger.h"
 #include <unistd.h> /* Standard Linux system calls header for write() */
+#include "service/modbus.h" // <-- In order to recognize type modbus_request_t
 
 /**
  * External linkage declaration advancing the PC thermodynamic simulation loop.
