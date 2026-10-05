@@ -47,7 +47,7 @@ typedef struct {
  * Mandatory pattern for suppressing single high-amplitude impulsive hardware spikes.
  */
 typedef struct {
-    adc_raw_t sample_buffer[3]; /* Static sliding sample memory window */
+    adc_raw_t sample_buffer[3u]; /* Static sliding sample memory window */
     uint8_t buffer_index;       /* Ring-buffer placement position counter */
 } median_filter_t;
 

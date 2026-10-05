@@ -25,17 +25,17 @@ static void test_wear_leveling_linear_progression(void)
 {
     modbus_reg_map_t regs;
     
-    /* Force completely blank slate before initializing the tracking loops execution */
     (void)platform_flash_sector_erase();
 
-    /* 1. First init on raw chip: must force recovery fallback initialization parameters */
+    /* 1. First init on raw chip: must report false (no valid sectors found) */
     bool init_ok = wl_service_init(&regs);
-    CHECK_EQ(init_ok, false);
-
+    CHECK_EQ(init_ok, false); 
+    
+    /* Force factory configuration variables */
     mb_regs_init(&regs);
-    CHECK_EQ(regs.cfg_slave_address, 1u); /* Factory template network ID default */
+    CHECK_EQ(regs.cfg_slave_address, 1u);
 
-    /* 2. Modify configuration parameters and execute continuous incremental saves */
+    /* 2. Modify and trigger incremental saves tracking snapshot progression */
     regs.cfg_slave_address = 42u;
     bool save_ok = wl_service_save(&regs);
     CHECK_EQ(save_ok, true);
@@ -44,12 +44,12 @@ static void test_wear_leveling_linear_progression(void)
     save_ok = wl_service_save(&regs);
     CHECK_EQ(save_ok, true);
 
-    /* 3. Simulate hardware power cycle reset by re-scanning the memory map with a blank struct */
+    /* 3. Re-boot simulation: flash now CONTAINS valid data, must report true! */
     modbus_reg_map_t fresh_boot_regs;
     init_ok = wl_service_init(&fresh_boot_regs);
     CHECK_EQ(init_ok, true);
     
-    /* Engine must flawlessly locate and restore the highest sequence number snapshot (99u) */
+    /* Must seamlessly recover the highest tracking version (99u) */
     CHECK_EQ(fresh_boot_regs.cfg_slave_address, 99u);
 }
 

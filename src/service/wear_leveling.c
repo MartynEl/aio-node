@@ -132,7 +132,7 @@ bool wl_service_save(const modbus_reg_map_t *regs)
             (void)memcpy(&temp_cfg, aligned_word_buf, sizeof(nv_config_t));
             
             /* Check if slot is cleanly erased (STM32 erased flash reads as 0xFFFFFFFF) */
-            if (temp_cfg.magic == 0xFFFFFFFFUL) {
+            if (temp_cfg.magic != WL_MAGIC_ID) {
                 slot_alloc_map[slot] = true; /* Verified as raw empty and write-ready */
             } else if (wl_validate_config(&temp_cfg)) {
                 if (temp_cfg.sequence_number > max_seq) {
