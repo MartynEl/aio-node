@@ -6,7 +6,9 @@
 #define WL_FLASH_SECTOR_SIZE   1024u
 #define WL_CONFIG_SIZE         sizeof(nv_config_t)
 #define WL_MAX_SLOTS_COUNT     (WL_FLASH_SECTOR_SIZE / WL_CONFIG_SIZE)
-#define WL_MAGIC_ID            0xA100N0DEu
+
+/* MISRA Compliance: Valid hexadecimal constant literal descriptor */
+#define WL_MAGIC_ID            0xA100B0DEu
 
 /* Link low-level platform flash driver contracts from hardware abstraction layer */
 extern bool platform_flash_read_row(uint32_t offset, uint32_t *out_buf, size_t words_len);
@@ -65,14 +67,21 @@ bool wl_service_init(modbus_reg_map_t *regs)
         nv_config_t temp_cfg;
         uint32_t offset = slot * WL_CONFIG_SIZE;
         
-        /* Read raw structural block words from platform abstraction layer */
-        bool read_ok = platform_flash_read_row(offset, (uint32_t *)(uintptr_t)&temp_cfg, WL_CONFIG_SIZE / 4u);
+        /* MISRA Compliance: Use a naturally aligned 32-bit array buffer to prevent unaligned access faults */
+        uint32_t aligned_word_buf[sizeof(nv_config_t) / 4u];
+        size_t words_len = sizeof(nv_config_t) / 4u;
         
-        if (read_ok && wl_validate_config(&temp_cfg)) {
-            if (!found_any_valid || (temp_cfg.sequence_number > max_seq)) {
-                max_seq = temp_cfg.sequence_number;
-                newest_config = temp_cfg;
-                found_any_valid = true;
+        bool read_ok = platform_flash_read_row(offset, aligned_word_buf, words_len);
+        
+        if (read_ok) {
+            (void)memcpy(&temp_cfg, aligned_word_buf, sizeof(nv_config_t));
+            
+            if (wl_validate_config(&temp_cfg)) {
+                if (!found_any_valid || (temp_cfg.sequence_number > max_seq)) {
+                    max_seq = temp_cfg.sequence_number;
+                    newest_config = temp_cfg;
+                    found_any_valid = true;
+                }
             }
         }
     }
@@ -114,18 +123,25 @@ bool wl_service_save(const modbus_reg_map_t *regs)
         nv_config_t temp_cfg;
         uint32_t offset = slot * WL_CONFIG_SIZE;
         
-        bool read_ok = platform_flash_read_row(offset, (uint32_t *)(uintptr_t)&temp_cfg, WL_CONFIG_SIZE / 4u);
+        uint32_t aligned_word_buf[sizeof(nv_config_t) / 4u];
+        size_t words_len = sizeof(nv_config_t) / 4u;
         
-        /* Check if slot is cleanly erased (STM32 erased flash reads as 0xFFFFFFFF) */
-        if (read_ok && (temp_cfg.magic == 0xFFFFFFFFUL)) {
-            slot_alloc_map[slot] = true; /* Verified as raw empty and write-ready */
-        } else if (read_ok && wl_validate_config(&temp_cfg)) {
-            if (temp_cfg.sequence_number > max_seq) {
-                max_seq = temp_cfg.sequence_number;
+        bool read_ok = platform_flash_read_row(offset, aligned_word_buf, words_len);
+        
+        if (read_ok) {
+            (void)memcpy(&temp_cfg, aligned_word_buf, sizeof(nv_config_t));
+            
+            /* Check if slot is cleanly erased (STM32 erased flash reads as 0xFFFFFFFF) */
+            if (temp_cfg.magic == 0xFFFFFFFFUL) {
+                slot_alloc_map[slot] = true; /* Verified as raw empty and write-ready */
+            } else if (wl_validate_config(&temp_cfg)) {
+                if (temp_cfg.sequence_number > max_seq) {
+                    max_seq = temp_cfg.sequence_number;
+                }
+            } else {
+                /* Structural mismatch or corrupted slot cell, mark as unsafe for writing */
+                slot_alloc_map[slot] = false;
             }
-        } else {
-            /* Structural mismatch or corrupted slot cell, mark as unsafe for writing */
-            slot_alloc_map[slot] = false;
         }
     }
 
@@ -166,7 +182,12 @@ bool wl_service_save(const modbus_reg_map_t *regs)
     size_t payload_len = offsetof(nv_config_t, crc32);
     outbound_cfg.crc32 = wl_calc_crc32(&outbound_cfg, payload_len);
 
-    /* Step 4: Stream compiled block directly into target flash slot offset address */
+    /* Step 4: Stream compiled block via safely aligned local intermediate memory buffer row */
     uint32_t target_offset = target_slot * WL_CONFIG_SIZE;
-    return platform_flash_write_row(target_offset, (const uint32_t *)(const uintptr_t)&outbound_cfg, WL_CONFIG_SIZE / 4u);
+    uint32_t aligned_write_buf[sizeof(nv_config_t) / 4u];
+    size_t write_words_len = sizeof(nv_config_t) / 4u;
+    
+    (void)memcpy(aligned_write_buf, &outbound_cfg, sizeof(nv_config_t));
+    
+    return platform_flash_write_row(target_offset, aligned_write_buf, write_words_len);
 }
