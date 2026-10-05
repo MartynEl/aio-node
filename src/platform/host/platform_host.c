@@ -16,6 +16,9 @@ static uint32_t g_host_bkp_dr1 = 0u;
 /* Simulated thermodynamics state object variable */
 static double g_virtual_process_variable = 1500.0; /* Starting coordinate in raw ADC units */
 
+/* MISRA Compliance: Forward declaration of linkage wrapper */
+extern int32_t char_output_stub(const char *data, size_t len);
+
 uint32_t platform_millis(void)
 {
     return g_host_now_ms;
