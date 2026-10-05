@@ -1,0 +1,24 @@
+{
+    "script": "misra",
+    "suppress": [
+        "misra-c2012-15.5",
+        "misra-c2012-12.1",
+        "misra-c2012-17.7",
+        "misra-c2012-21.6",
+        "misra-c2012-20.10",
+        "misra-c2012-20.7",
+        "misra-c2012-11.5",
+        "misra-c2012-8.4",
+        "misra-c2012-15.6",
+        "misra-c2012-11.8",
+        "misra-c2012-10.8",
+        "misra-c2012-10.3",
+        "misra-c2012-10.4",
+        "misra-c2012-13.3",
+        "misra-c2012-17.8",
+        "misra-c2012-21.15",
+        "misra-c2012-7.2",
+        "misra-c2012-8.9",
+        "misra-c2012-12.4"
+    ]
+}
