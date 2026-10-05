@@ -49,6 +49,7 @@ typedef struct {
 typedef struct {
     adc_raw_t sample_buffer[3u]; /* Static sliding sample memory window */
     uint8_t buffer_index;       /* Ring-buffer placement position counter */
+    bool is_initialized;        /* warmup flag */
 } median_filter_t;
 
 /**
