@@ -21,7 +21,9 @@ static void test_pid_error_convergence(void)
 {
     pid_controller_t pid;
     /* Kp = 1.0 (1024), Ki = 0.0, Kd = 0.0 */
-    pid_init(&pid, 1024, 0, 0);
+    // pid_init(&pid, 1024, 0, 0);
+    /* We increased Kp to 15000 to impose a strict upper limit. */
+    pid_init(&pid, 15000, 0, 0);
     pid_set_setpoint(&pid, 2000);
 
     /* Feedback is below target (1000u), error = 1000, output should scale power up */
