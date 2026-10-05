@@ -65,4 +65,17 @@ void platform_emergency_backup_save(const void *data, size_t len);
  */
 bool platform_emergency_backup_load(void *out_data, size_t len);
 
+/**
+ * @brief Stream raw character byte block directly to the active hardware or host terminal.
+ * 
+ * @param data Pointer to the character memory buffer.
+ * @param len Total bytes count to output.
+ */
+void platform_write(const char *data, size_t len);
+
+/**
+ * @brief Background processing hook flushing low-level driver tasks queues.
+ */
+void platform_poll(void);
+
 #endif /* PLATFORM_PLATFORM_H */
