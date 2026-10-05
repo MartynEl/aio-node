@@ -76,9 +76,9 @@ adc_raw_t filter_cascade_update(dsp_channel_t *channel, adc_raw_t raw_sample)
 
     /* Extract median output window values safely */
     adc_raw_t med_out = calc_median_of_3(
-        channel->median.sample_buffer[0],
-        channel->median.sample_buffer[1],
-        channel->median.sample_buffer[2]
+        channel->median.sample_buffer[0u],
+        channel->median.sample_buffer[1u],
+        channel->median.sample_buffer[2u]
     );
 
     /* --------------------------------------------------------------------- */
