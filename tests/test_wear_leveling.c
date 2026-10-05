@@ -30,7 +30,9 @@ static void test_wear_leveling_linear_progression(void)
 
     /* 1. First init on raw chip: must force recovery fallback initialization parameters */
     bool init_ok = wl_service_init(&regs);
-    CHECK_EQ(init_ok, true);
+    CHECK_EQ(init_ok, false);
+
+    mb_regs_init(&regs);
     CHECK_EQ(regs.cfg_slave_address, 1u); /* Factory template network ID default */
 
     /* 2. Modify configuration parameters and execute continuous incremental saves */

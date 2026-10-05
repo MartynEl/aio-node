@@ -96,13 +96,13 @@ bool wl_service_init(modbus_reg_map_t *regs)
         regs->cfg_target_setpoint = newest_config.target_setpoint;
         regs->cfg_manual_pwm_mode = newest_config.manual_pwm_mode;
         regs->cfg_manual_pwm_duty = newest_config.manual_pwm_duty;
+        return true; /* Successfully recover settings */
     } else {
-        /* No valid flash context found (Factory raw chip condition) - Force hardware fallback defaults */
-        mb_regs_init(regs);
-        (void)wl_service_save(regs); /* Force commit initial snapshot layout into Slot 0 */
+        /* It's should be: */
+        /* Sector is empty (firdt run). Do not replace registers, just return false */
+        return false; 
     }
 
-    return true;
 }
 
 bool wl_service_save(const modbus_reg_map_t *regs)

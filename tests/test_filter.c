@@ -1,5 +1,6 @@
 #include "core/filter.h"
 #include <stdio.h>
+#include <string.h>
 
 static int32_t g_test_failures = 0;
 
@@ -20,6 +21,7 @@ static void check_int(const char *file, int32_t line, const char *expr, int32_t 
 static void test_median_spike_suppression(void)
 {
     dsp_channel_t ch;
+    (void)memset(&ch, 0, sizeof(dsp_channel_t)); /* <-- Clean steck */
     filter_cascade_init(&ch, 16384u); /* Set alpha = 1.0 (EMA transparent) to test pure median */
 
     /* Fill sliding window with baseline data */
@@ -43,6 +45,7 @@ static void test_median_spike_suppression(void)
 static void test_ema_smoothing(void)
 {
     dsp_channel_t ch;
+    (void)memset(&ch, 0, sizeof(dsp_channel_t)); /* <-- Clean steck */
     /* Set alpha = 4096 (4096 / 16384 = 0.25 smoothing weight) */
     filter_cascade_init(&ch, 4096u);
 

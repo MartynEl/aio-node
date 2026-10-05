@@ -55,7 +55,7 @@ static void mcu_adc_dma_callback(const adc_raw_t *buffer_ptr, size_t samples_cou
  * @brief Asynchronous network event interceptor called by Modbus engine.
  * Dispatched instantly when a valid incoming wire request frame is fully captured.
  */
-void modbus_server_on_request_ready(const modbus_request_t *req)
+void modbus_server_on_request_ready(const modbus_rx_request_t *req)
 {
     if (req == NULL) {
         return;

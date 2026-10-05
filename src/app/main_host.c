@@ -5,7 +5,7 @@
 #include "platform/pwm_port.h"
 #include "service/logger.h"
 #include <unistd.h> /* Standard Linux system calls header for write() */
-#include "service/modbus.h" // <-- In order to recognize type modbus_request_t
+#include "service/modbus.h" // <-- In order to recognize type modbus_rx_request_t
 
 /**
  * External linkage declaration advancing the PC thermodynamic simulation loop.
@@ -32,7 +32,7 @@ int32_t char_output_stub(const char *data, size_t len)
  * @brief Dummy placeholder callback implemented to satisfy compiler linkages.
  * Real network event dispatching is covered inside main_mcu.c
  */
-void modbus_server_on_request_ready(const modbus_request_t *req)
+void modbus_server_on_request_ready(const modbus_rx_request_t *req)
 {
     (void)req;
 }
