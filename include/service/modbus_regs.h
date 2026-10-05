@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>  /* <-- In order to recognize type size_t */
 #include "core/types.h"
 
 /**
