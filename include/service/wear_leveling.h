@@ -24,8 +24,8 @@ typedef struct __attribute__((packed)) {
     uint16_t manual_pwm_mode;     /* Loop control override flag */
     uint16_t manual_pwm_duty;     /* Forced manual duty payload */
     
-    uint16_t reserved_padding;    /* MISRA explicit structural 32-bit alignment padding */
     uint32_t crc32;               /* Structural payload integrity verification checksum */
+    uint16_t align_pad;           /* 2 bytes -> Total 32 bytes */
 } nv_config_t;
 
 /**

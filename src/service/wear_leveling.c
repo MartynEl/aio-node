@@ -6,7 +6,6 @@
 #define WL_FLASH_SECTOR_SIZE   1024u
 #define WL_CONFIG_SIZE         sizeof(nv_config_t)
 #define WL_MAX_SLOTS_COUNT     (WL_FLASH_SECTOR_SIZE / WL_CONFIG_SIZE)
-
 /* MISRA Compliance: Valid hexadecimal constant literal descriptor */
 #define WL_MAGIC_ID            0xA100B0DEu
 
@@ -22,7 +21,6 @@ static uint32_t wl_calc_crc32(const void *data, size_t len)
 {
     const uint8_t *bytes = (const uint8_t *)data;
     uint32_t crc = 0xFFFFFFFFUL;
-
     for (size_t i = 0u; i < len; ++i) {
         crc ^= bytes[i];
         for (uint8_t j = 0u; j < 8u; ++j) {
@@ -44,11 +42,9 @@ static bool wl_validate_config(const nv_config_t *cfg)
     if (cfg->magic != WL_MAGIC_ID) {
         return false;
     }
-    
     /* Calculate CRC excluding the last 4 bytes of crc32 field itself */
     size_t payload_len = offsetof(nv_config_t, crc32);
     uint32_t expected_crc = wl_calc_crc32(cfg, payload_len);
-    
     return (cfg->crc32 == expected_crc);
 }
 
@@ -57,7 +53,6 @@ bool wl_service_init(modbus_reg_map_t *regs)
     if (regs == NULL) {
         return false;
     }
-
     nv_config_t newest_config;
     uint32_t max_seq = 0u;
     bool found_any_valid = false;
@@ -67,15 +62,13 @@ bool wl_service_init(modbus_reg_map_t *regs)
         nv_config_t temp_cfg;
         uint32_t offset = slot * WL_CONFIG_SIZE;
         
-        /* MISRA Compliance: Use a naturally aligned 32-bit array buffer to prevent unaligned access faults */
+        /* MISRA Compliance: Use a naturally aligned 32-bit array buffer */
         uint32_t aligned_word_buf[sizeof(nv_config_t) / 4u];
         size_t words_len = sizeof(nv_config_t) / 4u;
-        
+
         bool read_ok = platform_flash_read_row(offset, aligned_word_buf, words_len);
-        
         if (read_ok) {
             (void)memcpy(&temp_cfg, aligned_word_buf, sizeof(nv_config_t));
-            
             if (wl_validate_config(&temp_cfg)) {
                 if (!found_any_valid || (temp_cfg.sequence_number > max_seq)) {
                     max_seq = temp_cfg.sequence_number;
@@ -98,11 +91,8 @@ bool wl_service_init(modbus_reg_map_t *regs)
         regs->cfg_manual_pwm_duty = newest_config.manual_pwm_duty;
         return true; /* Successfully recover settings */
     } else {
-        /* It's should be: */
-        /* Sector is empty (firdt run). Do not replace registers, just return false */
-        return false; 
+        return false;
     }
-
 }
 
 bool wl_service_save(const modbus_reg_map_t *regs)
@@ -110,7 +100,6 @@ bool wl_service_save(const modbus_reg_map_t *regs)
     if (regs == NULL) {
         return false;
     }
-
     uint32_t target_slot = 0u;
     uint32_t max_seq = 0u;
     bool slot_alloc_map[WL_MAX_SLOTS_COUNT];
@@ -122,15 +111,12 @@ bool wl_service_save(const modbus_reg_map_t *regs)
     for (uint32_t slot = 0u; slot < WL_MAX_SLOTS_COUNT; ++slot) {
         nv_config_t temp_cfg;
         uint32_t offset = slot * WL_CONFIG_SIZE;
-        
         uint32_t aligned_word_buf[sizeof(nv_config_t) / 4u];
         size_t words_len = sizeof(nv_config_t) / 4u;
         
         bool read_ok = platform_flash_read_row(offset, aligned_word_buf, words_len);
-        
         if (read_ok) {
             (void)memcpy(&temp_cfg, aligned_word_buf, sizeof(nv_config_t));
-            
             /* Check if slot is cleanly erased (STM32 erased flash reads as 0xFFFFFFFF) */
             if (temp_cfg.magic != WL_MAGIC_ID) {
                 slot_alloc_map[slot] = true; /* Verified as raw empty and write-ready */
@@ -167,7 +153,6 @@ bool wl_service_save(const modbus_reg_map_t *regs)
     nv_config_t outbound_cfg;
     outbound_cfg.magic = WL_MAGIC_ID;
     outbound_cfg.sequence_number = max_seq + 1u; /* Increment software version counter */
-    
     outbound_cfg.slave_address = regs->cfg_slave_address;
     outbound_cfg.filter_alpha = regs->cfg_filter_alpha;
     outbound_cfg.pid_kp = regs->cfg_pid_kp;
@@ -176,7 +161,9 @@ bool wl_service_save(const modbus_reg_map_t *regs)
     outbound_cfg.target_setpoint = regs->cfg_target_setpoint;
     outbound_cfg.manual_pwm_mode = regs->cfg_manual_pwm_mode;
     outbound_cfg.manual_pwm_duty = regs->cfg_manual_pwm_duty;
-    outbound_cfg.reserved_padding = 0xAA55u; /* MISRA structural checksum visual identity block pattern */
+    
+    /* IMPORTANT: Fill padding with zeros or specific pattern to ensure deterministic CRC */
+    outbound_cfg.align_pad = 0x0000u; 
 
     /* Finalize payload data calculation with CRC32 signature */
     size_t payload_len = offsetof(nv_config_t, crc32);
@@ -186,8 +173,7 @@ bool wl_service_save(const modbus_reg_map_t *regs)
     uint32_t target_offset = target_slot * WL_CONFIG_SIZE;
     uint32_t aligned_write_buf[sizeof(nv_config_t) / 4u];
     size_t write_words_len = sizeof(nv_config_t) / 4u;
-    
+
     (void)memcpy(aligned_write_buf, &outbound_cfg, sizeof(nv_config_t));
-    
     return platform_flash_write_row(target_offset, aligned_write_buf, write_words_len);
 }

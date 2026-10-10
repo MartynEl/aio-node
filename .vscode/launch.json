@@ -1,0 +1,40 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug test_filter (Host)",
+            "type": "cppdbg",
+            "request": "launch",
+            // Путь к исполняемому файлу теста после сборки
+            "program": "${workspaceFolder}/build/tests/test_filter",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            // Важно: указать путь к стандартному gdb linux
+            "miDebuggerPath": "/usr/bin/gdb",
+            // Можно поставить брейкпоинт прямо здесь, если знаете линию
+            "preLaunchTask": "" 
+        },
+        {
+            "name": "Debug aio_host Simulator",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/aio_host",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb"
+        }
+    ]
+}

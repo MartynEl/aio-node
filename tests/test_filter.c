@@ -41,24 +41,45 @@ static void test_median_spike_suppression(void)
 
 /**
  * @brief Verify that fixed-point EMA successfully smoothes white noise data ripples.
+ * NOTE: Median filter (window=3) introduces a 1-sample delay on step changes.
+ * We must account for this latency before verifying EMA convergence.
  */
 static void test_ema_smoothing(void)
 {
     dsp_channel_t ch;
-    (void)memset(&ch, 0, sizeof(dsp_channel_t)); /* <-- Clean steck */
+    (void)memset(&ch, 0, sizeof(dsp_channel_t)); /* Clean stack */
+    
     /* Set alpha = 4096 (4096 / 16384 = 0.25 smoothing weight) */
     filter_cascade_init(&ch, 4096u);
-
+    
     /* Prime filter with initial value step to lock baseline */
-    (void)filter_cascade_update(&ch, 1000u);
-
-    /* Input steps to 2000u, verify fractional convergence exponential steps */
-    adc_raw_t out = filter_cascade_update(&ch, 2000u);
-    /* Out = 0.25 * 2000 + 0.75 * 1000 = 500 + 750 = 1250 */
-    CHECK_EQ(out, 1250u);
-
+    /* Step 1: Input 1000. Buffer becomes {1000, 1000, 1000}. Median=1000. EMA init=1000. */
+    adc_raw_t out = filter_cascade_update(&ch, 1000u);
+    CHECK_EQ(out, 1000u); 
+    
+    /* Step 2: Input 2000. 
+       Buffer becomes {2000, 1000, 1000} (assuming index wraps or fills sequentially).
+       Median of {2000, 1000, 1000} is STILL 1000.
+       So EMA receives 1000. History is 1000. Result remains 1000.
+       This verifies the MEDIAN LATENCY behavior. */
     out = filter_cascade_update(&ch, 2000u);
-    /* Out = 0.25 * 2000 + 0.75 * 1250 = 500 + 937 = 1437 */
+    CHECK_EQ(out, 1000u); // Expected due to median suppression of single spike/step start
+
+    /* Step 3: Input 2000 again.
+       Buffer becomes {2000, 2000, 1000}.
+       Median of {2000, 2000, 1000} is NOW 2000.
+       EMA receives 2000. History is 1000.
+       Calculation: Y_new = 0.25 * 2000 + 0.75 * 1000 = 500 + 750 = 1250. */
+    out = filter_cascade_update(&ch, 2000u);
+    CHECK_EQ(out, 1250u); 
+
+    /* Step 4: Input 2000 third time.
+       Buffer becomes {2000, 2000, 2000}.
+       Median is 2000.
+       EMA receives 2000. History is 1250.
+       Calculation: Y_new = 0.25 * 2000 + 0.75 * 1250 = 500 + 937.5 -> truncated to 937.
+       Total: 500 + 937 = 1437. */
+    out = filter_cascade_update(&ch, 2000u);
     CHECK_EQ(out, 1437u);
 }
 

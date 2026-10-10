@@ -9,7 +9,7 @@
 #include <stddef.h>
 
 /* Global static application context root object instance */
-static app_t g_io_node;
+app_t g_io_node;
 
 /* Global pointer referencing the main scheduler loop inside interrupts */
 static scheduler_t g_mcu_scheduler;
@@ -139,13 +139,14 @@ static void task_mcu_logger_flush(void *ctx)
 static void task_mcu_modbus_network(void *ctx)
 {
     app_t *app = (app_t *)ctx;
+    
+    /* TODO: Implement full DMA-based Modbus frame reception and parsing here.
+     * Currently, we only mark the watchdog ticket to prove the task is alive.
+     * The 'now' timestamp will be required for inter-frame gap detection 
+     * in future iterations of the protocol stack. */
+     
     uint32_t now = platform_millis();
-
-    /* 
-     * In a full DMA hardware implementation, bytes stream asynchronously in the background.
-     * We tick the server task to cleanly clear events and monitor thread health checkpoints.
-     */
-    // (void)modbus_server_task(&app->modbus_server, now);
+    (void)now; /* Suppress -Wunused-variable warning until logic is implemented */
     
     app_watchdog_mark_ticket(app, APP_TICKET_MODBUS);
 }

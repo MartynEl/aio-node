@@ -101,6 +101,8 @@ if(AIO_BUILD_MCU)
         src/platform/stm32f1/platform_stm32f1.c
         src/platform/stm32f1/adc_dma.c
         src/platform/stm32f1/pwm_timer.c
+        src/platform/stm32f1/startup_stm32f1.c
+        src/platform/stm32f1/hal_stubs.c
         src/service/logger.c
     )
     

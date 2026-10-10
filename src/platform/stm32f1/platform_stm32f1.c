@@ -1,14 +1,16 @@
 #include "platform/platform.h"
 #include "platform/adc_port.h"
 #include "platform/pwm_port.h"
-#include "core/controller.h"
+// #include "core/controller.h"
+/* TODO: Future integration of high-level controller state machine hooks if needed */
+#include "app/app.h"
 #include <stddef.h>
 
 /* --- Hardware Register Layout Addresses (STM32F103) --- */
 #define REG_RCC_BASE         0x40021000UL
 #define REG_RCC_APB1ENR      (*(volatile uint32_t *)(REG_RCC_BASE + 0x1CUL))
 #define REG_RCC_APB2ENR      (*(volatile uint32_t *)(REG_RCC_BASE + 0x18UL))
-#define REG_RCC_CSR          (*(volatile uint32_t *)(REG_BASE_RCC + 0x24UL))
+#define REG_RCC_CSR          (*(volatile uint32_t *)(REG_RCC_BASE + 0x24UL))
 
 #define REG_PWR_BASE         0x40007000UL
 #define REG_PWR_CR           (*(volatile uint32_t *)(REG_PWR_BASE + 0x00UL))
@@ -40,7 +42,7 @@
 #define IWDG_KEY_START       0xCCCCUL
 
 /* Reference the global structured application context root */
-extern app_t g_aio_app_context;
+extern app_t g_io_node;
 
 reset_cause_t platform_reset_cause_get(void)
 {
@@ -144,7 +146,7 @@ void PVD_IRQHandler(void)
 {
     /* Microsecond safe isolation: immediately shutdown power load lines at silicon level */
     pwm_hardware_emergency_disable();
-    g_aio_app_context.registers.device_state = (uint16_t)DEVICE_STATE_SAFE_MODE;
+    g_io_node.registers.device_state = (uint16_t)DEVICE_STATE_SAFE_MODE;
 
     /* Clear pending hardware interrupt bit flag */
     REG_EXTI_PR = EXTI_LINE_16_PVD;

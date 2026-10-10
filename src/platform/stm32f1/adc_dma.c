@@ -54,7 +54,7 @@ bool adc_hardware_init(adc_callback_fn callback)
 
     /* 2. Configure Pin PA0, PA1, PA2 as Analog Inputs (CNF=00, MODE=00) */
     uint32_t gpio_crl = REG_GPIOA_CRL;
-    gpio_crl &= ~0x00000FFFIL; /* Wipe configuration flags for pins 0, 1, 2 */
+    gpio_crl &= ~0x00000FFFUL; /* Wipe configuration flags for pins 0, 1, 2 */
     REG_GPIOA_CRL = gpio_crl;
 
     /* 3. Configure DMA1 Channel 1 (Tied to ADC1 hardware event) */
@@ -62,14 +62,14 @@ bool adc_hardware_init(adc_callback_fn callback)
     REG_DMA1_CPAR1 = (uint32_t)&REG_ADC1_DR;
     REG_DMA1_CMAR1 = (uint32_t)(uintptr_t)g_adc_raw_dma_pool;
     REG_DMA1_CNDTR1 = ADC_DMA_TOTAL_SIZE;
-    
+
     /* DMA CCR1 Configuration flags:
-     * PL=10 (High priority), MSIZE=01 (16-bit), PSIZE=01 (16-bit), 
-     * MINC=1 (Memory increment), CIRC=1 (Circular loop), 
+     * PL=10 (High priority), MSIZE=01 (16-bit), PSIZE=01 (16-bit),
+     * MINC=1 (Memory increment), CIRC=1 (Circular loop),
      * HTIE=1 (Half Transfer Interrupt), TCIE=1 (Transfer Complete Interrupt)
      */
-    REG_DMA1_CCR1 = (2UL << 12u) | (1UL << 10u) | (1UL << 8u) | 
-                     (1UL << 7u)  | (1UL << 5u)  | (1UL << 2u) | (1UL << 1u);
+    REG_DMA1_CCR1 = (2UL << 12u) | (1UL << 10u) | (1UL << 8u) |
+                    (1UL << 7u)  | (1UL << 5u)  | (1UL << 2u) | (1UL << 1u);
 
     /* 4. Configure ADC1 Peripherals Scanning Routine registers */
     REG_ADC1_SMPR2 |= (7UL << 0u) | (7UL << 3u) | (7UL << 6u); /* 239.5 cycles sample time for Ch 0,1,2 */
@@ -84,12 +84,13 @@ bool adc_hardware_init(adc_callback_fn callback)
     REG_ADC1_CR2 |= (1UL << 0u); /* ADON: Wake up ADC block from deep sleep */
     REG_ADC1_CR2 |= (1UL << 3u); /* RSTCAL: Reset calibration registers matrix */
     while ((REG_ADC1_CR2 & (1UL << 3u)) != 0u) {}
-    
     REG_ADC1_CR2 |= (1UL << 2u); /* CAL: Start calibration process */
     while ((REG_ADC1_CR2 & (1UL << 2u)) != 0u) {}
 
     /* 6. Commit vector slots inside NVIC interrupt map and start pipeline */
-    REG_NVIC_BASE |= REG_NVIC_ISER0 | NVIC_IRQ_11_DMA1_CH1;
+    // ИСПРАВЛЕНО: Запись в регистр ISER0, а не в базовый адрес
+    REG_NVIC_ISER0 |= NVIC_IRQ_11_DMA1_CH1; 
+    
     REG_DMA1_CCR1 |= 1UL; /* EN: Fire up DMA engine streaming */
     REG_ADC1_CR2 |= (1UL << 22u); /* SWSTART: Kick off first conversion scan row */
 

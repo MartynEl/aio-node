@@ -14,7 +14,7 @@
 extern void platform_host_advance_simulation(uint32_t step_ms);
 
 /* Global static application context instance allocation */
-static app_t g_io_node;
+app_t g_io_node;
 
 /**
  * @brief MISRA compliant implementation linking our core logger to Linux OS.
