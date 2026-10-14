@@ -53,8 +53,8 @@ Configure and execute the test suites and thermodynamic simulator on your local 
 # Configure host test suite
 cmake -B build -DAIO_BUILD_HOST_TESTS=ON -DAIO_BUILD_HOST_SIMULATOR=ON -DAIO_BUILD_MCU=OFF
 
-# Compile and run automated CTest blocks
-cmake --build build -j\$(nproc)
+# Compile and run automated CTest blocks (12 tests: filter×5, pid×4, wear_leveling×3)
+cmake --build build -j$(nproc)
 ctest --test-dir build --output-on-failure
 
 # Launch interactive thermodynamic process simulator
@@ -68,3 +68,6 @@ Generate production hex images for the physical STM32 microchip:
 cmake -B build-mcu -DCMAKE_TOOLCHAIN_FILE=cmake/arm-none-eabi.cmake -DAIO_BUILD_MCU=ON -DAIO_BUILD_HOST_TESTS=OFF
 cmake --build build-mcu -j\$(nproc)
 ```
+# Flash to STM32F103C8T6 via ST-Link V2 (requires udev rules for USB access)
+openocd -f interface/stlink.cfg -f target/stm32f1x.cfg \
+        -c "program build-mcu/aio_fw verify reset exit"
