@@ -4,18 +4,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-/* --- Time & Delay Stubs --- */
-static volatile uint32_t s_millis_counter = 0u;
-
-void platform_delay_ms(uint32_t ms) {
-    /* TODO: Implement real delay using SysTick or DWT cycle counter */
-    for (uint32_t i = 0; i < ms * 1000u; ++i) {} 
-}
-
-uint32_t platform_millis(void) {
-    /* In a real system, this would read a timer updated by SysTick IRQ */
-    return s_millis_counter; 
-}
+/* --- Time & Delay: real implementation moved to sys_tick.c (Stage 2.2) --- */
 
 void platform_poll(void) {
     /* Placeholder for background tasks if any */

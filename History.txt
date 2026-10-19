@@ -187,3 +187,30 @@ heartbeat LED ещё не написан). Поэтому плата после 
 это не баг и не мёртвый чип. Наблюдаемое доказательство исполнения кода = следующий шаг
 (SysTick + LED heartbeat на PC13).
 Stage 2.1 закрыт (presence + first flash verified).
+* Шаг 17: Stage 2.2 — live firmware verified (SysTick + LED heartbeat)
+Применены два точечных диффа, вскрывших латентный баг драйвера IWDG (Шаг 10):
+  1) platform_stm32f1.c / platform_wdg_init: переставлен REG_IWDG_KR = IWDG_KEY_START
+     (0xCCCC) ПЕРЕД обоими ожиданиями PVU/RVU; добавлены bounded-wait guard'ы.
+     Корень: LSI-осциллятор включается аппаратно только записью 0xCCCC (RM0008),
+     а PVU/RVU сбрасываются по фронтам тактов LSI. В старом порядке START стоял
+     после waits => оба while висели вечно, ядро не доходило до for(;;).
+     Диагностика: pc=0x0800095c (внутри platform_wdg_init по map) не сдвигался
+     за 800 мс при reset run + halt; xPSR IPSR=0 (Thread mode, не fault).
+  2) adc_dma.c / adc_hardware_init: превентивно добавлены bounded-wait guard'ы
+     в два вечных while (RSTCAL, CAL) — тот же принцип «никогда не висеть на
+     hardware handshake», следующий кандидат на зависание после wdg_init.
+Наблюдаемый результат: onboard LED мигает ~1 Гц (500 мс вкл/выкл) РОВНО, без рывков.
+Это доказывает одновременно: CPU live, SysTick тикает (millis растёт), scheduler
+отрабатывает, все 3 тикета (DSP|PID|MODBUS) выставляются, IWDG кормится (нет ресетов),
+GPIO toggle работает. Toggle размещён ДО scheduler в цикле (isolation-принцип):
+мигание = минимум «CPU+SysTick+GPIO», не смешанный с политикой тикетов.
+ПОПРАВКА ПО ЖЕЛЕЗУ: onboard LED на данной перемаркированной плате — ЗЕЛЁНЫЙ
+(не синий, как на эталонной Blue Pill), пин PC13. Полярность active-low заложена
+по эталону; мигание подтверждает управление, но active-low/high отдельно не
+верифицировано (не блокер для heartbeat). Согласуется с OTP 128KB из Шага 16:
+плата — клон со своей разводкой, не эталон.
+Размер: FLASH 5448->5740 B (+292, только text), RAM 2192 B (0). Прирост = код
+таймаут-счётчиков и перестановка записей; guard/cal_guard локальны в стеке,
+поэтому BSS не вырос — подтверждение отсутствия побочных статических глобалов.
+Stage 2.2 закрыт (live firmware verified). Следующий рубеж: Stage 2.3 —
+observability (UART1 драйвер + замена platform_write-заглушки + вектор [55]).

@@ -108,13 +108,10 @@ bool platform_emergency_backup_load(void *out_data, size_t len)
 void platform_wdg_init(uint32_t timeout_ms)
 {
     REG_IWDG_KR = IWDG_KEY_UNLOCK;
-    REG_IWDG_PR = 4u; /* Prescaler division factor = 64 (provides 1 tick ≈ 1.6 ms) */
+    REG_IWDG_PR = 4u; /* Prescaler division factor = 64 (1 tick ≈ 1.6 ms @ LSI 40 kHz) */
 
-    while ((REG_IWDG_SR & (1UL << 0u)) != 0u) {
-        /* Wait until PVU (Prescaler Value Update) flag clears */
-    }
-
-    /* Convert time units constraint into raw reload tick values */
+    /* Convert time units constraint into raw reload tick values.
+     * Done BEFORE START: PR/RLR are write-protected once IWDG is enabled. */
     uint32_t reload_ticks = (timeout_ms * 5u) / 8u;
     if (reload_ticks > 4095u) {
         reload_ticks = 4095u;
@@ -122,14 +119,28 @@ void platform_wdg_init(uint32_t timeout_ms)
     if (reload_ticks < 1u) {
         reload_ticks = 1u;
     }
-
     REG_IWDG_RLR = reload_ticks;
 
-    while ((REG_IWDG_SR & (1UL << 1u)) != 0u) {
-        /* Wait until RVU (Reload Value Update) flag clears */
+    /* START BEFORE the waits: the LSI oscillator is turned on by hardware only
+     * when 0xCCCC is written (RM0008). PVU/RVU clear on LSI clock edges, so
+     * waiting for them before START hangs forever while LSI is off. The PR/RLR
+     * values written above are latched into the counter when LSI starts. */
+    REG_IWDG_KR = IWDG_KEY_START;
+
+    /* Bounded waits — industrial hygiene: never hang on a hardware handshake.
+     * Guard ≈ 5 ms at 8 MHz HSI; PVU/RVU normally clear within 1-2 LSI edges
+     * (~50 µs each), so the guard never trips in healthy silicon. If it does
+     * trip, we proceed rather than deadlock: watchdog runs with possibly stale
+     * PR/RLR, which is a degraded-but-recoverable state, not a frozen board. */
+    uint32_t guard = 10000u;
+    while ((REG_IWDG_SR & (1UL << 0u)) != 0u) { /* PVU */
+        if (--guard == 0u) { break; }
     }
 
-    REG_IWDG_KR = IWDG_KEY_START;
+    guard = 10000u;
+    while ((REG_IWDG_SR & (1UL << 1u)) != 0u) { /* RVU */
+        if (--guard == 0u) { break; }
+    }
 }
 
 void platform_wdg_feed(void)

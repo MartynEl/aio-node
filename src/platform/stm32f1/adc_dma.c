@@ -83,9 +83,15 @@ bool adc_hardware_init(adc_callback_fn callback)
     /* 5. Trigger hardware self-calibration engine to eliminate silicon offsets */
     REG_ADC1_CR2 |= (1UL << 0u); /* ADON: Wake up ADC block from deep sleep */
     REG_ADC1_CR2 |= (1UL << 3u); /* RSTCAL: Reset calibration registers matrix */
-    while ((REG_ADC1_CR2 & (1UL << 3u)) != 0u) {}
+    uint32_t cal_guard = 100000u; /* ADC-CLK ≈ 1.33 MHz (HSI/6); calib ≈ few hundred clk */
+    while ((REG_ADC1_CR2 & (1UL << 3u)) != 0u) {
+        if (--cal_guard == 0u) { break; } /* never hang on ADC handshake */
+    }
     REG_ADC1_CR2 |= (1UL << 2u); /* CAL: Start calibration process */
-    while ((REG_ADC1_CR2 & (1UL << 2u)) != 0u) {}
+    cal_guard = 100000u;
+    while ((REG_ADC1_CR2 & (1UL << 2u)) != 0u) {
+        if (--cal_guard == 0u) { break; }
+    }
 
     /* 6. Commit vector slots inside NVIC interrupt map and start pipeline */
     // ИСПРАВЛЕНО: Запись в регистр ISER0, а не в базовый адрес
