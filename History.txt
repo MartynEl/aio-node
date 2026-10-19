@@ -214,3 +214,11 @@ GPIO toggle работает. Toggle размещён ДО scheduler в цикл
 поэтому BSS не вырос — подтверждение отсутствия побочных статических глобалов.
 Stage 2.2 закрыт (live firmware verified). Следующий рубеж: Stage 2.3 —
 observability (UART1 драйвер + замена platform_write-заглушки + вектор [55]).
+* Шаг 18: Stage 2.2 standalone boot verified
+После полного отключения питания ST-Link и повторного подключения плата самостоятельно
+стартует из Flash при BOOT0=0 и мигает onboard LED с частотой ~1 Гц.
+Это подтверждает, что прошивка живёт не только под отладчиком, а корректно запускается
+из энергонезависимой памяти после power-cycle.
+Stage 2.2 полностью закрыт: CPU live, SysTick live, GPIO live, IWDG live, standalone boot live.
+Следующий рубеж: Stage 2.3 — observability через UART1 TX и CH340G.
+
