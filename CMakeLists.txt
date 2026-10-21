@@ -106,6 +106,7 @@ if(AIO_BUILD_MCU)
         src/service/logger.c
         src/platform/stm32f1/sys_tick.c
         src/platform/stm32f1/gpio_led.c
+        src/platform/stm32f1/uart1.c
     )
     
     target_link_libraries(aio_fw PRIVATE aio_core)

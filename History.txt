@@ -221,4 +221,24 @@ observability (UART1 драйвер + замена platform_write-заглушк
 из энергонезависимой памяти после power-cycle.
 Stage 2.2 полностью закрыт: CPU live, SysTick live, GPIO live, IWDG live, standalone boot live.
 Следующий рубеж: Stage 2.3 — observability через UART1 TX и CH340G.
-
+* Шаг 19: Stage 2.3-code — UART1 TX driver verified via debugger readback
+Добавлен src/platform/stm32f1/uart1.c: USART1 TX blocking, 115200 8N1 на PA9,
+BRR=0x45 (PCLK2=8MHz HSI: USARTDIV=4.3403 -> mantissa4/frac5, err 0.64%).
+platform_write перенесён из hal_stubs.c-заглушки в uart1.c (clean transfer,
+подтверждён переездом символа в map/disassembly: hal_stubs.c.obj -> uart1.c.obj).
+logger_init() + boot-баннер (reset cause + этап) в main_mcu.c МЕЖДУ wdg_init и
+app_init. startup НЕ тронут: blocking TX не использует прерывание USART1,
+вектор [55] остаётся Default_Handler.
+Верификация БЕЗ провода (dupont ETA +1 нед, боковой header не распаян) — OpenOCD
+readback по фиксированным адресам периферии: USART1_CR1=0x2008 (TE+UE), BRR=0x45,
+GPIOA_CRH PA9 nibble=0x9 (RMW сохранил PA8), USART1_SR idle=0xC0 (TC+TXE),
+DR-probe (mww DR=0x55 -> SR снова 0xC0 = периферия физически сдвинула байт).
+Динамика ядра: millis(0x20000294) растёт (1014->2027), pc меняется (wfi<->orchestrator),
+баннер откачан (count=0, head=tail=75) -> flush_blocking вышел, цикл жив.
+ВАЖНОЕ НАБЛЮДЕНИЕ (исправляет ложный «регресс LED»): «зелёный горит/не горит»
+в halt-диагностике — артефакт чётности toggle в момент заморозки, а НЕ баг.
+halt замораживает CPU (периферия живёт), LED замирает в фазе, зависящей от числа
+toggle до freeze. sleep1000x2 -> 4 toggle (чёт) -> OFF; sleep300x2 -> 1 toggle
+(нечёт) -> ON. Оба опыта сходятся с одной гипотезой active-low. Свободный прогон
+(reset run без halt) показывает ровное мигание ~1 Гц. Stage 2.3-code закрыт.
+Отложено: 2.3-echo (терминал через CH340G, с dupont), 2.3.2 (non-blocking TX).

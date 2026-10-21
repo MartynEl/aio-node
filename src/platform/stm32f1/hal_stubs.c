@@ -21,21 +21,7 @@ void platform_wfi(void) {
    If linker complains about it specifically being undefined despite file inclusion,
    check if the function name matches exactly. */
 
-/* --- Logger / IO Stubs --- */
-/**
- * @brief Stream raw character byte block directly to the active hardware or host terminal.
- * 
- * Implementation Note: Currently a stub for MCU build.
- * TODO: Connect this to UART DMA transmit buffer when uart_driver is integrated.
- */
-void platform_write(const char *data, size_t len)
-{
-    /* Suppress unused parameter warnings for now */
-    (void)data;
-    (void)len;
-    
-    /* In a real implementation, this would enqueue bytes into the UART TX ring buffer */
-}
+/* --- Logger / IO: real implementation moved to uart1.c (Stage 2.3) --- */
 
 /* --- Flash Wear Leveling Stubs --- */
 bool platform_flash_read_row(uint32_t offset, uint32_t *out_buf, size_t words_len) {

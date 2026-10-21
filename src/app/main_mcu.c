@@ -174,6 +174,21 @@ int main(void)
     /* 3. Initialize Independent Watchdog (IWDG) security lock with a 2-second timeout window */
     platform_wdg_init(2000u);
 
+    /* 3.5 Stage 2.3: bring up UART TX + logger EARLY (after WDG, before app init),
+     * so any later fault during app_init/wl/adc/pwm is observable. Blocking TX is
+     * fine here: it runs once at boot, before the scheduler exists. */
+    extern void uart1_init(void);
+    uart1_init();
+    logger_init();
+    logger_write_str("AIO-NODE boot");
+    logger_new_line();
+    logger_write_str("reset cause: ");
+    logger_write_u32((uint32_t)boot_cause);
+    logger_new_line();
+    logger_write_str("Stage 2.3 UART TX ready @115200 (HSI 8MHz)");
+    logger_new_line();
+    logger_flush_blocking();
+
     /* 4. Boot application composite root layers */
     app_init(&g_io_node, boot_cause);
 
