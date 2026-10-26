@@ -11,11 +11,17 @@
  */
 #define ADC_CHANNELS_COUNT  3u
 
+/* Stage 2.4 workaround:
+ * This remarked STM32F1 clone does not latch ADC_CR2.CONT, so continuous
+ * DMA scanning is unavailable. We temporarily reduce oversampling to 1 sample
+ * per channel and software-kick one 3-channel scan per logging period.
+ * This proves ADC -> DMA -> callback -> registers -> logger -> UART end-to-end.
+ */
 /**
  * @brief Oversampling depth factor. Hardware DMA collects this many samples 
  * per individual channel before triggering the processing cycle callback.
  */
-#define ADC_SAMPLES_PER_CHANNEL 16u
+#define ADC_SAMPLES_PER_CHANNEL 1u
 
 /**
  * @brief Asynchronous hardware DMA processing events.
@@ -49,5 +55,14 @@ bool adc_hardware_init(adc_callback_fn callback);
  * Invoked under critical safe state requirements.
  */
 void adc_hardware_stop(void);
+
+/**
+ * @brief Request one single ADC DMA scan.
+ *
+ * Workaround for silicon/clone variants where ADC_CR2.CONT cannot be latched.
+ * Each call starts exactly one regular conversion sequence and arms DMA to
+ * generate a half-transfer event after ADC_CHANNELS_COUNT samples.
+ */
+void adc_hardware_kick_scan(void);
 
 #endif /* PLATFORM_ADC_PORT_H */

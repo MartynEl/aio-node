@@ -151,6 +151,29 @@ static void task_mcu_modbus_network(void *ctx)
     app_watchdog_mark_ticket(app, APP_TICKET_MODBUS);
 }
 
+static void task_mcu_adc_log(void *ctx)
+{
+    app_t *app = (app_t *)ctx;
+
+    if (app == NULL) {
+        return;
+    }
+
+    /* Stage 2.4.1: prove DMA -> callback -> registers -> logger -> UART chain.
+     *
+     * This clone does not latch ADC_CONT, so we log the result of the previous
+     * software-kicked single scan and then request the next one.
+     */
+    logger_write_str("ADC0 r=");
+    logger_write_u32_padded((uint32_t)app->registers.adc_ch0_raw, 4u);
+    logger_write_str(" f=");
+    logger_write_u32_padded((uint32_t)app->registers.adc_ch0_filtered, 4u);
+    logger_new_line();
+
+    /* Arm one new 3-channel ADC DMA scan for the next logging period. */
+    adc_hardware_kick_scan();
+}
+
 /* --------------------------------------------------------------------------- */
 /* 🏁 Hardware Execution Entry Point                                           */
 /* --------------------------------------------------------------------------- */
@@ -202,12 +225,13 @@ int main(void)
     (void)pwm_hardware_init();
 
     /* 8. Construct tasks allocation arrays inside background static manager */
-    static sched_task_t mcu_tasks_buffer[3u];
-    sched_init(&g_mcu_scheduler, mcu_tasks_buffer, 3u);
+    static sched_task_t mcu_tasks_buffer[4u];
+    sched_init(&g_mcu_scheduler, mcu_tasks_buffer, 4u);
 
     (void)sched_task_register(&g_mcu_scheduler, 10u, task_mcu_control_loop, &g_io_node, "control");
     (void)sched_task_register(&g_mcu_scheduler, 1u,  task_mcu_logger_flush,  NULL,       "logger");
     (void)sched_task_register(&g_mcu_scheduler, 10u, task_mcu_modbus_network, &g_io_node, "modbus");
+    (void)sched_task_register(&g_mcu_scheduler, 1000u, task_mcu_adc_log, &g_io_node, "adclog");
 
     /* 9. Core Hardware Execution Loop (Ultra low-power deterministic sleep pattern) */
     uint32_t last_beat_ms = 0u;   /* Stage 2.2 heartbeat edge tracker */
