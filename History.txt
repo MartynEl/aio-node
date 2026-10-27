@@ -135,137 +135,137 @@
 * Шаг 13: Успешная кросс-компиляция под STM32F103. Добавлены startup.c, linker script, hal_stubs.
   Все хост-тесты green.
 * Шаг 14: Расширение тестовой базы (Non-degenerate Robustness Tests)
-Добавлены граничные тесты для DSP-каскада (Median+EMA):
-  - test_step_response_max: ступенька до 4095, проверка отсутствия переполнения.
-  - test_noise_rejection: дисперсия выхода строго меньше дисперсии входа.
-  - test_alpha_boundaries: alpha=0 (заморозка), alpha=16384 (прозрачность).
-Добавлены тесты для PID-регулятора:
-  - test_pid_saturation_recovery: доказательство конечного времени восстановления
-    при Integral Clamping (анти-насыщение через потолок 10240000L, а не stop-накопление).
-  - test_pid_derivative_kick: документирование поведения D-on-Error при скачке уставки.
-Добавлены тесты для Wear Leveling:
-  - test_wl_sector_overflow: 40 итераций записи (> 32 слота), проверка восстановления
-    последней конфигурации после принудительного стирания сектора.
-  - test_wl_integrity_check: последовательная запись Config A → Config B,
-    reload из Flash, верификация возврата B.
-Итог: 12/12 хостовых тестов зелёные. MCU-сборка чистая (5448B Flash / 2192B RAM).
+  Добавлены граничные тесты для DSP-каскада (Median+EMA):
+    - test_step_response_max: ступенька до 4095, проверка отсутствия переполнения.
+    - test_noise_rejection: дисперсия выхода строго меньше дисперсии входа.
+    - test_alpha_boundaries: alpha=0 (заморозка), alpha=16384 (прозрачность).
+  Добавлены тесты для PID-регулятора:
+    - test_pid_saturation_recovery: доказательство конечного времени восстановления
+      при Integral Clamping (анти-насыщение через потолок 10240000L, а не stop-накопление).
+    - test_pid_derivative_kick: документирование поведения D-on-Error при скачке уставки.
+  Добавлены тесты для Wear Leveling:
+    - test_wl_sector_overflow: 40 итераций записи (> 32 слота), проверка восстановления
+      последней конфигурации после принудительного стирания сектора.
+    - test_wl_integrity_check: последовательная запись Config A → Config B,
+      reload из Flash, верификация возврата B.
+  Итог: 12/12 хостовых тестов зелёные. MCU-сборка чистая (5448B Flash / 2192B RAM).
 
 * Шаг 15: Подготовка инфраструктуры прошивки (HiL)
-Установлен ST-Link V2, настроены udev-правила (/etc/udev/rules.d/49-stlinkv2.rules).
-OpenOCD 0.11.0 подтверждает видимость программатора:
-  Info : STLINK V2J37S7 (API v2) VID:PID 0483:3748
-  Info : Target voltage: 3.244415
-  Error: init mode failed (unable to connect to the target)  ← ожидаемо, плата не подключена.
-Скрипт flash.sh подготовлен для однократной прошивки:
-  openocd -f interface/stlink.cfg -f target/stm32f1x.cfg \
-          -c "program build-mcu/aio_fw verify reset exit"
-Blue Pill (STM32F103C8T6) получена. Ожидается физическое подключение SWD.
+  Установлен ST-Link V2, настроены udev-правила (/etc/udev/rules.d/49-stlinkv2.rules).
+  OpenOCD 0.11.0 подтверждает видимость программатора:
+    Info : STLINK V2J37S7 (API v2) VID:PID 0483:3748
+    Info : Target voltage: 3.244415
+    Error: init mode failed (unable to connect to the target)  ← ожидаемо, плата не подключена.
+  Скрипт flash.sh подготовлен для однократной прошивки:
+    openocd -f interface/stlink.cfg -f target/stm32f1x.cfg \
+            -c "program build-mcu/aio_fw verify reset exit"
+  Blue Pill (STM32F103C8T6) получена. Ожидается физическое подключение SWD.
 * Шаг 16: Stage 2.1 — SWD presence + first flash verified (первый контакт с железом)
-Blue Pill + ST-Link V2 подключены по 4 сигналам (3.3V->3V3, GND->GND, SWCLK->CLK, SWDIO->DIO).
-Распиновка подтверждена прозвонкой мультиметром с ОБОИХ концов каждого dupont-провода
-по таблице пинов крышки ST-Link (2=SWCLK, 4=SWDIO, 5/6=GND, 7/8=3.3V; 9/10=5.0V не трогали).
-BOOT0/BOOT1 = "0" (загрузка из Flash). Питание только от ST-Link, microUSB платы не подключён.
+  Blue Pill + ST-Link V2 подключены по 4 сигналам (3.3V->3V3, GND->GND, SWCLK->CLK, SWDIO->DIO).
+  Распиновка подтверждена прозвонкой мультиметром с ОБОИХ концов каждого dupont-провода
+  по таблице пинов крышки ST-Link (2=SWCLK, 4=SWDIO, 5/6=GND, 7/8=3.3V; 9/10=5.0V не трогали).
+  BOOT0/BOOT1 = "0" (загрузка из Flash). Питание только от ST-Link, microUSB платы не подключён.
 
-Команда 1 (presence): openocd -f interface/stlink.cfg -f target/stm32f1x.cfg -c "init; reset halt; exit"
-  -> Target voltage 3.251872 В, stm32f1x.cpu распознан, target halted, регистры прочитаны.
+  Команда 1 (presence): openocd -f interface/stlink.cfg -f target/stm32f1x.cfg -c "init; reset halt; exit"
+    -> Target voltage 3.251872 В, stm32f1x.cpu распознан, target halted, регистры прочитаны.
 
-Команда 2 (first flash): openocd ... -c "program build-mcu/aio_fw verify reset exit"
-  -> Target voltage 3.243850 В, ** Programming Finished **, ** Verified OK **, ** Resetting Target **.
-  -> device id = 0x20030410, flash size = 128kbytes.
+  Команда 2 (first flash): openocd ... -c "program build-mcu/aio_fw verify reset exit"
+    -> Target voltage 3.243850 В, ** Programming Finished **, ** Verified OK **, ** Resetting Target **.
+    -> device id = 0x20030410, flash size = 128kbytes.
 
-ВЫВОД ПО ЖЕЛЕЗУ (важно): OpenOCD по OTP определил Flash = 128 KB, тогда как маркировка платы
-утверждает STM32F103C8T6 = 64 KB. Расхождение = вероятная перемаркировка кристалла
-(Medium-density вместо Low-density) — типичный кейс китайских Blue Pill.
-Точную модель чипа не утверждаем: отдельная идентификация, не сейчас.
-Практика: linker stm32f103c8tx.ld консервативен по Flash (64KB из 128KB OTP) и просит
-20KB RAM; любой чип F103 со 128KB Flash имеет не менее 20KB RAM, поэтому linker безопасен
-независимо от точной модели — просто не задействует вторую половину Flash. Прошивка 5448B
-влезает с запасом. Точную модель и RAM не утверждаем до идентификации по device id.
+  ВЫВОД ПО ЖЕЛЕЗУ (важно): OpenOCD по OTP определил Flash = 128 KB, тогда как маркировка платы
+  утверждает STM32F103C8T6 = 64 KB. Расхождение = вероятная перемаркировка кристалла
+  (Medium-density вместо Low-density) — типичный кейс китайских Blue Pill.
+  Точную модель чипа не утверждаем: отдельная идентификация, не сейчас.
+  Практика: linker stm32f103c8tx.ld консервативен по Flash (64KB из 128KB OTP) и просит
+  20KB RAM; любой чип F103 со 128KB Flash имеет не менее 20KB RAM, поэтому linker безопасен
+  независимо от точной модели — просто не задействует вторую половину Flash. Прошивка 5448B
+  влезает с запасом. Точную модель и RAM не утверждаем до идентификации по device id.
 
-СТАТУС ПРОШИВКИ: залитая aio_fw — заглушка (platform_millis не тикает, platform_write молчит,
-heartbeat LED ещё не написан). Поэтому плата после reset молча стартует и НЕ мигает — ОЖИДАЕМО,
-это не баг и не мёртвый чип. Наблюдаемое доказательство исполнения кода = следующий шаг
-(SysTick + LED heartbeat на PC13).
-Stage 2.1 закрыт (presence + first flash verified).
+  СТАТУС ПРОШИВКИ: залитая aio_fw — заглушка (platform_millis не тикает, platform_write молчит,
+  heartbeat LED ещё не написан). Поэтому плата после reset молча стартует и НЕ мигает — ОЖИДАЕМО,
+  это не баг и не мёртвый чип. Наблюдаемое доказательство исполнения кода = следующий шаг
+  (SysTick + LED heartbeat на PC13).
+  Stage 2.1 закрыт (presence + first flash verified).
 * Шаг 17: Stage 2.2 — live firmware verified (SysTick + LED heartbeat)
-Применены два точечных диффа, вскрывших латентный баг драйвера IWDG (Шаг 10):
-  1) platform_stm32f1.c / platform_wdg_init: переставлен REG_IWDG_KR = IWDG_KEY_START
-     (0xCCCC) ПЕРЕД обоими ожиданиями PVU/RVU; добавлены bounded-wait guard'ы.
-     Корень: LSI-осциллятор включается аппаратно только записью 0xCCCC (RM0008),
-     а PVU/RVU сбрасываются по фронтам тактов LSI. В старом порядке START стоял
-     после waits => оба while висели вечно, ядро не доходило до for(;;).
-     Диагностика: pc=0x0800095c (внутри platform_wdg_init по map) не сдвигался
-     за 800 мс при reset run + halt; xPSR IPSR=0 (Thread mode, не fault).
-  2) adc_dma.c / adc_hardware_init: превентивно добавлены bounded-wait guard'ы
-     в два вечных while (RSTCAL, CAL) — тот же принцип «никогда не висеть на
-     hardware handshake», следующий кандидат на зависание после wdg_init.
-Наблюдаемый результат: onboard LED мигает ~1 Гц (500 мс вкл/выкл) РОВНО, без рывков.
-Это доказывает одновременно: CPU live, SysTick тикает (millis растёт), scheduler
-отрабатывает, все 3 тикета (DSP|PID|MODBUS) выставляются, IWDG кормится (нет ресетов),
-GPIO toggle работает. Toggle размещён ДО scheduler в цикле (isolation-принцип):
-мигание = минимум «CPU+SysTick+GPIO», не смешанный с политикой тикетов.
-ПОПРАВКА ПО ЖЕЛЕЗУ: onboard LED на данной перемаркированной плате — ЗЕЛЁНЫЙ
-(не синий, как на эталонной Blue Pill), пин PC13. Полярность active-low заложена
-по эталону; мигание подтверждает управление, но active-low/high отдельно не
-верифицировано (не блокер для heartbeat). Согласуется с OTP 128KB из Шага 16:
-плата — клон со своей разводкой, не эталон.
-Размер: FLASH 5448->5740 B (+292, только text), RAM 2192 B (0). Прирост = код
-таймаут-счётчиков и перестановка записей; guard/cal_guard локальны в стеке,
-поэтому BSS не вырос — подтверждение отсутствия побочных статических глобалов.
-Stage 2.2 закрыт (live firmware verified). Следующий рубеж: Stage 2.3 —
-observability (UART1 драйвер + замена platform_write-заглушки + вектор [55]).
+  Применены два точечных диффа, вскрывших латентный баг драйвера IWDG (Шаг 10):
+    1) platform_stm32f1.c / platform_wdg_init: переставлен REG_IWDG_KR = IWDG_KEY_START
+      (0xCCCC) ПЕРЕД обоими ожиданиями PVU/RVU; добавлены bounded-wait guard'ы.
+      Корень: LSI-осциллятор включается аппаратно только записью 0xCCCC (RM0008),
+      а PVU/RVU сбрасываются по фронтам тактов LSI. В старом порядке START стоял
+      после waits => оба while висели вечно, ядро не доходило до for(;;).
+      Диагностика: pc=0x0800095c (внутри platform_wdg_init по map) не сдвигался
+      за 800 мс при reset run + halt; xPSR IPSR=0 (Thread mode, не fault).
+    2) adc_dma.c / adc_hardware_init: превентивно добавлены bounded-wait guard'ы
+      в два вечных while (RSTCAL, CAL) — тот же принцип «никогда не висеть на
+      hardware handshake», следующий кандидат на зависание после wdg_init.
+  Наблюдаемый результат: onboard LED мигает ~1 Гц (500 мс вкл/выкл) РОВНО, без рывков.
+  Это доказывает одновременно: CPU live, SysTick тикает (millis растёт), scheduler
+  отрабатывает, все 3 тикета (DSP|PID|MODBUS) выставляются, IWDG кормится (нет ресетов),
+  GPIO toggle работает. Toggle размещён ДО scheduler в цикле (isolation-принцип):
+  мигание = минимум «CPU+SysTick+GPIO», не смешанный с политикой тикетов.
+  ПОПРАВКА ПО ЖЕЛЕЗУ: onboard LED на данной перемаркированной плате — ЗЕЛЁНЫЙ
+  (не синий, как на эталонной Blue Pill), пин PC13. Полярность active-low заложена
+  по эталону; мигание подтверждает управление, но active-low/high отдельно не
+  верифицировано (не блокер для heartbeat). Согласуется с OTP 128KB из Шага 16:
+  плата — клон со своей разводкой, не эталон.
+  Размер: FLASH 5448->5740 B (+292, только text), RAM 2192 B (0). Прирост = код
+  таймаут-счётчиков и перестановка записей; guard/cal_guard локальны в стеке,
+  поэтому BSS не вырос — подтверждение отсутствия побочных статических глобалов.
+  Stage 2.2 закрыт (live firmware verified). Следующий рубеж: Stage 2.3 —
+  observability (UART1 драйвер + замена platform_write-заглушки + вектор [55]).
 * Шаг 18: Stage 2.2 standalone boot verified
-После полного отключения питания ST-Link и повторного подключения плата самостоятельно
-стартует из Flash при BOOT0=0 и мигает onboard LED с частотой ~1 Гц.
-Это подтверждает, что прошивка живёт не только под отладчиком, а корректно запускается
-из энергонезависимой памяти после power-cycle.
-Stage 2.2 полностью закрыт: CPU live, SysTick live, GPIO live, IWDG live, standalone boot live.
-Следующий рубеж: Stage 2.3 — observability через UART1 TX и CH340G.
+  После полного отключения питания ST-Link и повторного подключения плата самостоятельно
+  стартует из Flash при BOOT0=0 и мигает onboard LED с частотой ~1 Гц.
+  Это подтверждает, что прошивка живёт не только под отладчиком, а корректно запускается
+  из энергонезависимой памяти после power-cycle.
+  Stage 2.2 полностью закрыт: CPU live, SysTick live, GPIO live, IWDG live, standalone boot live.
+  Следующий рубеж: Stage 2.3 — observability через UART1 TX и CH340G.
 * Шаг 19: Stage 2.3-code — UART1 TX driver verified via debugger readback
-Добавлен src/platform/stm32f1/uart1.c: USART1 TX blocking, 115200 8N1 на PA9,
-BRR=0x45 (PCLK2=8MHz HSI: USARTDIV=4.3403 -> mantissa4/frac5, err 0.64%).
-platform_write перенесён из hal_stubs.c-заглушки в uart1.c (clean transfer,
-подтверждён переездом символа в map/disassembly: hal_stubs.c.obj -> uart1.c.obj).
-logger_init() + boot-баннер (reset cause + этап) в main_mcu.c МЕЖДУ wdg_init и
-app_init. startup НЕ тронут: blocking TX не использует прерывание USART1,
-вектор [55] остаётся Default_Handler.
-Верификация БЕЗ провода (dupont ETA +1 нед, боковой header не распаян) — OpenOCD
-readback по фиксированным адресам периферии: USART1_CR1=0x2008 (TE+UE), BRR=0x45,
-GPIOA_CRH PA9 nibble=0x9 (RMW сохранил PA8), USART1_SR idle=0xC0 (TC+TXE),
-DR-probe (mww DR=0x55 -> SR снова 0xC0 = периферия физически сдвинула байт).
-Динамика ядра: millis(0x20000294) растёт (1014->2027), pc меняется (wfi<->orchestrator),
-баннер откачан (count=0, head=tail=75) -> flush_blocking вышел, цикл жив.
-ВАЖНОЕ НАБЛЮДЕНИЕ (исправляет ложный «регресс LED»): «зелёный горит/не горит»
-в halt-диагностике — артефакт чётности toggle в момент заморозки, а НЕ баг.
-halt замораживает CPU (периферия живёт), LED замирает в фазе, зависящей от числа
-toggle до freeze. sleep1000x2 -> 4 toggle (чёт) -> OFF; sleep300x2 -> 1 toggle
-(нечёт) -> ON. Оба опыта сходятся с одной гипотезой active-low. Свободный прогон
-(reset run без halt) показывает ровное мигание ~1 Гц. Stage 2.3-code закрыт.
-Отложено: 2.3-echo (терминал через CH340G, с dupont), 2.3.2 (non-blocking TX).
+  Добавлен src/platform/stm32f1/uart1.c: USART1 TX blocking, 115200 8N1 на PA9,
+  BRR=0x45 (PCLK2=8MHz HSI: USARTDIV=4.3403 -> mantissa4/frac5, err 0.64%).
+  platform_write перенесён из hal_stubs.c-заглушки в uart1.c (clean transfer,
+  подтверждён переездом символа в map/disassembly: hal_stubs.c.obj -> uart1.c.obj).
+  logger_init() + boot-баннер (reset cause + этап) в main_mcu.c МЕЖДУ wdg_init и
+  app_init. startup НЕ тронут: blocking TX не использует прерывание USART1,
+  вектор [55] остаётся Default_Handler.
+  Верификация БЕЗ провода (dupont ETA +1 нед, боковой header не распаян) — OpenOCD
+  readback по фиксированным адресам периферии: USART1_CR1=0x2008 (TE+UE), BRR=0x45,
+  GPIOA_CRH PA9 nibble=0x9 (RMW сохранил PA8), USART1_SR idle=0xC0 (TC+TXE),
+  DR-probe (mww DR=0x55 -> SR снова 0xC0 = периферия физически сдвинула байт).
+  Динамика ядра: millis(0x20000294) растёт (1014->2027), pc меняется (wfi<->orchestrator),
+  баннер откачан (count=0, head=tail=75) -> flush_blocking вышел, цикл жив.
+  ВАЖНОЕ НАБЛЮДЕНИЕ (исправляет ложный «регресс LED»): «зелёный горит/не горит»
+  в halt-диагностике — артефакт чётности toggle в момент заморозки, а НЕ баг.
+  halt замораживает CPU (периферия живёт), LED замирает в фазе, зависящей от числа
+  toggle до freeze. sleep1000x2 -> 4 toggle (чёт) -> OFF; sleep300x2 -> 1 toggle
+  (нечёт) -> ON. Оба опыта сходятся с одной гипотезой active-low. Свободный прогон
+  (reset run без halt) показывает ровное мигание ~1 Гц. Stage 2.3-code закрыт.
+  Отложено: 2.3-echo (терминал через CH340G, с dupont), 2.3.2 (non-blocking TX).
 * Шаг 20: Stage 2.3-echo — physical terminal echo verified (UART TX end-to-end)
-CH340G подключён двумя проводами: Blue Pill PA9 -> CH340G RXD, Blue Pill GND -> CH340G GND.
-VCC/3V3/5V модуля к плате НЕ подключались (плата питается от ST-Link, модуль от USB ноута;
-общая земля обязательна). Джампер уровня CH340G = 3V3 (согласован с 3.3V STM32, shifter не нужен).
-Блокер предыдущего хода — brltty (принял CH340 за брайлевский дисплей, отобрал интерфейс у
-ch341-uart, /dev/ttyUSB0 исчезал); устранён stop/disable(+remove) brltty и перетыканием USB.
-picocom -b 115200 /dev/ttyUSB0 принял баннер БЕЗ мусора:
-  AIO-NODE boot
-  reset cause: 3
-  Stage 2.3 UART TX ready @115200 (HSI 8MHz)
-reset cause: 3 = RESET_CAUSE_EXTERNAL (NRST) — кнопка RESRT дёрнута ПОСЛЕ открытия терминала.
-Двойной результат: (1) канал PA9->RXD->USB->терминал работает end-to-end; (2) логика
-platform_reset_cause_get() (чтение флагов RCC_CSR + установка RMVF) исполнилась на ЖЕЛЕЗЕ
-ВПЕРВЫЕ — на хосте она захардкожена в POWER_ON=0 и тестами не покрывается; наблюдаемый enum
-совпал с наблюдаемым действием (нажатие кнопки). Точные биты CSR не утверждаем (маски в
-фрагментах не показаны) — факт держим на уровне enum/поведения, не на угаданных битах.
-Чистый читаемый баннер молча подтверждает 5 слоёв сразу: полярность PA9->RXD (не ->TXD,
-иначе тишина), baud-совпадение (BRR=0x45 @HSI8 <-> 115200), уровень 3V3 (джампер), общая
-земля, фрейминг 8N1 (CR1 = TE+UE только). Впервые за HiL три инструмента сошлись без
-расхождений: readback регистров (v0.7) + дизассемблер platform_write (бьёт в 0x40013804) +
-физический приём (баннер). Методологическая рамка: picocom показывает НЕЗастывший поток,
-в отличие от halt-снимка, поэтому доверие к наблюдаемому здесь обосновано.
-Stage 2.3 ЗАКРЫТ ЦЕЛИКОМ (code + echo). Отложено: 2.3.2 (DMA/non-blocking consumer-side TX —
-оптимизация, НЕ блокер периодического лога, см. инсайт ниже), 2.4 (ADC), 2.5 (PWM), 2.6 (RS-485).
+  CH340G подключён двумя проводами: Blue Pill PA9 -> CH340G RXD, Blue Pill GND -> CH340G GND.
+  VCC/3V3/5V модуля к плате НЕ подключались (плата питается от ST-Link, модуль от USB ноута;
+  общая земля обязательна). Джампер уровня CH340G = 3V3 (согласован с 3.3V STM32, shifter не нужен).
+  Блокер предыдущего хода — brltty (принял CH340 за брайлевский дисплей, отобрал интерфейс у
+  ch341-uart, /dev/ttyUSB0 исчезал); устранён stop/disable(+remove) brltty и перетыканием USB.
+  picocom -b 115200 /dev/ttyUSB0 принял баннер БЕЗ мусора:
+    AIO-NODE boot
+    reset cause: 3
+    Stage 2.3 UART TX ready @115200 (HSI 8MHz)
+  reset cause: 3 = RESET_CAUSE_EXTERNAL (NRST) — кнопка RESRT дёрнута ПОСЛЕ открытия терминала.
+  Двойной результат: (1) канал PA9->RXD->USB->терминал работает end-to-end; (2) логика
+  platform_reset_cause_get() (чтение флагов RCC_CSR + установка RMVF) исполнилась на ЖЕЛЕЗЕ
+  ВПЕРВЫЕ — на хосте она захардкожена в POWER_ON=0 и тестами не покрывается; наблюдаемый enum
+  совпал с наблюдаемым действием (нажатие кнопки). Точные биты CSR не утверждаем (маски в
+  фрагментах не показаны) — факт держим на уровне enum/поведения, не на угаданных битах.
+  Чистый читаемый баннер молча подтверждает 5 слоёв сразу: полярность PA9->RXD (не ->TXD,
+  иначе тишина), baud-совпадение (BRR=0x45 @HSI8 <-> 115200), уровень 3V3 (джампер), общая
+  земля, фрейминг 8N1 (CR1 = TE+UE только). Впервые за HiL три инструмента сошлись без
+  расхождений: readback регистров (v0.7) + дизассемблер platform_write (бьёт в 0x40013804) +
+  физический приём (баннер). Методологическая рамка: picocom показывает НЕЗастывший поток,
+  в отличие от halt-снимка, поэтому доверие к наблюдаемому здесь обосновано.
+  Stage 2.3 ЗАКРЫТ ЦЕЛИКОМ (code + echo). Отложено: 2.3.2 (DMA/non-blocking consumer-side TX —
+  оптимизация, НЕ блокер периодического лога, см. инсайт ниже), 2.4 (ADC), 2.5 (PWM), 2.6 (RS-485).
 * Шаг 21: Stage 2.4.1 — ADC DMA single-scan observability verified
   Выявлен дефект оригинального кода на реальном кремнии: автомат регулярного SCAN-преобразования
   на данном перемаркированном клоне (Device ID = 0x20030410) заклинивал после первого же пинка,
@@ -278,3 +278,10 @@ Stage 2.3 ЗАКРЫТ ЦЕЛИКОМ (code + echo). Отложено: 2.3.2 (DM
   единиц МЗР (r=0003 f=0003), успешно подтверждена работа DSP-фильтра (эффект Priming при старте).
   BSS и RAM не выросли. Чистота сборки и MISRA-контракт сохранены.
   Stage 2.4.1 закрыт полностью.
+* Шаг 22: Stage 2.4.2 — Physical ADC span verified with potentiometer
+  Собрана схема на макетке MB-102: потенциометр B10K подключен к 3.3V, GND и сигнальному PA0.
+  Проведены натурные испытания (HiL) диапазона измерения. В терминале picocom подтверждено
+  плавное и линейное изменение кодов от крайнего положения GND (r=0002) до упора 3.3V (r=3587).
+  Каскад фильтрации Core (Медиана из 3-х точек + EMA) отработал без сбоев и переполнений при 
+  резких скачках напряжения. Ложные выбросы отсекаются, дрейф подавляется.
+  Stage 2.4 закрыт полностью. Код готов к возврату промышленного оверсемплинга.
