@@ -24,31 +24,17 @@ static scheduler_t g_mcu_scheduler;
  */
 static void mcu_adc_dma_callback(const adc_raw_t *buffer_ptr, size_t samples_count, adc_event_t event)
 {
-    if ((buffer_ptr == NULL) || (event == ADC_EVENT_HARDWARE_ERROR)) {
+    if ((buffer_ptr == NULL) || (event == ADC_EVENT_HARDWARE_ERROR) || (samples_count < 3u)) {
         g_io_node.registers.system_fault_mask |= FAULT_BIT_ADC_DMA;
         g_io_node.registers.device_state = (uint16_t)DEVICE_STATE_SAFE_MODE;
         pwm_hardware_emergency_disable();
         return;
     }
 
-    /* Process oversampled data block rows directly inside the DMA memory block */
-    uint32_t accum_ch0 = 0u;
-    uint32_t accum_ch1 = 0u;
-    uint32_t accum_ch2 = 0u;
-    
-    size_t rows_to_parse = samples_count / ADC_CHANNELS_COUNT;
-
-    for (size_t i = 0u; i < rows_to_parse; ++i) {
-        size_t base = i * ADC_CHANNELS_COUNT;
-        accum_ch0 += (uint32_t)buffer_ptr[base + 0u];
-        accum_ch1 += (uint32_t)buffer_ptr[base + 1u];
-        accum_ch2 += (uint32_t)buffer_ptr[base + 2u];
-    }
-
-    /* Extract mean average from oversampled hardware block and update input registers */
-    g_io_node.registers.adc_ch0_raw = (adc_raw_t)(accum_ch0 / rows_to_parse);
-    g_io_node.registers.adc_ch1_raw = (adc_raw_t)(accum_ch1 / rows_to_parse);
-    g_io_node.registers.adc_ch2_raw = (adc_raw_t)(accum_ch2 / rows_to_parse);
+    /* Атомарно сохраняем моментальный снимок одного скана каналов железа */
+    g_io_node.registers.adc_ch0_raw = buffer_ptr[0u];
+    g_io_node.registers.adc_ch1_raw = buffer_ptr[1u];
+    g_io_node.registers.adc_ch2_raw = buffer_ptr[2u];
 }
 
 /**
@@ -122,11 +108,34 @@ static void task_mcu_control_loop(void *ctx)
     app_t *app = (app_t *)ctx;
     uint32_t now = platform_millis();
 
+    /* --- ПРОМЫШЛЕННЫЙ СОФТВЕРНЫЙ ОВЕРСЕМПЛИНГ (Квант 10 мс) --- */
+    static uint32_t soft_accum_ch0 = 0u;
+    static uint32_t soft_samples_count = 0u;
+
+    /* Накапливаем моментальные железные снимки, пришедшие из DMA коллбека */
+    soft_accum_ch0 += (uint32_t)app->registers.adc_ch0_raw;
+    soft_samples_count++;
+
+    /* Как только накопили 16 честных отсчетов (интервал 160 мс) */
+    if (soft_samples_count >= 16u) {
+        /* Перезаписываем входной регистр усредненным оверсемпленным значением */
+        app->registers.adc_ch0_raw = (adc_raw_t)(soft_accum_ch0 / 16u);
+        
+        /* Сбрасываем софтверный аккумулятор */
+        soft_accum_ch0 = 0u;
+        soft_samples_count = 0u;
+    }
+    /* --------------------------------------------------------- */
+
     /* Process DSP conditioning filtering and step the PID output calculation */
     app_task_process_control(app, now);
 
     /* Write final decision duty cycle directly into hardware timer CCR registers */
     pwm_hardware_set_duty(app->registers.pwm_current_duty);
+
+    /* Пинаем АЦП в стабильном сингл-режиме 1u на следующий квант 10 мс */
+    extern void adc_hardware_kick_scan(void);
+    adc_hardware_kick_scan();
 }
 
 static void task_mcu_logger_flush(void *ctx)
@@ -164,6 +173,11 @@ static void task_mcu_adc_log(void *ctx)
     logger_write_str(" f=");
     logger_write_u32_padded((uint32_t)app->registers.adc_ch0_filtered, 4u);
     logger_new_line();
+
+    /* ВОЗВРАЩАЕМ ЭТАЛОННЫЙ ПИНОК РАЗ В СЕКУНДУ */
+    extern void adc_hardware_kick_scan(void);
+    adc_hardware_kick_scan();
+
 }
 
 /* --------------------------------------------------------------------------- */

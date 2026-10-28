@@ -15,7 +15,7 @@
  * @brief Oversampling depth factor. Hardware DMA collects this many samples 
  * per individual channel before triggering the processing cycle callback.
  */
-#define ADC_SAMPLES_PER_CHANNEL 16u
+#define ADC_SAMPLES_PER_CHANNEL 1u
 
 /**
  * @brief Asynchronous hardware DMA processing events.
