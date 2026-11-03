@@ -1,0 +1,17 @@
+--- src/app/main_mcu.c
++++ src/app/main_mcu.c
+@@ -158,14 +158,4 @@
+-    /* Stage 2.4.1: prove DMA -> callback -> registers -> logger -> UART chain.
+-     *
+-     * This clone does not latch ADC_CONT, so we log the result of the previous
+-     * software-kicked single scan and then request the next one.
+-     */
+     logger_write_str("ADC0 r=");
+     logger_write_u32_padded((uint32_t)app->registers.adc_ch0_raw, 4u);
+     logger_write_str(" f=");
+     logger_write_u32_padded((uint32_t)app->registers.adc_ch0_filtered, 4u);
+     logger_new_line();
+-
+-    /* Arm one new 3-channel ADC DMA scan for the next logging period. */
+-    adc_hardware_kick_scan();
+ }

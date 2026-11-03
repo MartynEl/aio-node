@@ -1,0 +1,8 @@
+--- include/platform/adc_port.h
++++ include/platform/adc_port.h
+@@ -11,4 +11,4 @@
+  * @brief Oversampling depth factor. Hardware DMA collects this many samples 
+  * per individual channel before triggering the processing cycle callback.
+  */
+-#define ADC_SAMPLES_PER_CHANNEL 1u
++#define ADC_SAMPLES_PER_CHANNEL 16u

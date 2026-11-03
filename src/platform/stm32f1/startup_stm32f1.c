@@ -1,8 +1,7 @@
 /* src/platform/stm32f1/startup_stm32f1.c */
-
 #include <stdint.h>
 
-/* 
+/*
  * External symbols defined in Linker Script (.ld).
  */
 extern uint32_t _estack;   /* Top of Stack */
@@ -14,9 +13,9 @@ extern uint32_t _ebss;     /* End Address of .bss segment (in RAM) */
 
 /* Forward declarations */
 extern int main(void);
-void Reset_Handler(void); /* <--- ДОБАВЛЕНО ОБЪЯВЛЕНИЕ ПЕРЕД ТАБЛИЦЕЙ */
+void Reset_Handler(void);
 
-/* 
+/*
  * Default Handler for unimplemented interrupts.
  */
 void Default_Handler(void)
@@ -35,18 +34,21 @@ void DebugMon_Handler(void) __attribute__((weak, alias("Default_Handler")));
 void PendSV_Handler(void) __attribute__((weak, alias("Default_Handler")));
 void SysTick_Handler(void) __attribute__((weak, alias("Default_Handler")));
 
-/* 
+/*
  * Peripheral Interrupt Handlers declared in our drivers.
  */
 /* From src/platform/stm32f1/adc_dma.c */
-void DMA1_Channel1_IRQHandler(void); 
+void DMA1_Channel1_IRQHandler(void);
 
 /* From src/platform/stm32f1/platform_stm32f1.c */
 void PVD_IRQHandler(void);
 
+/* From src/platform/stm32f1/uart1.c */
+void USART1_IRQHandler(void);
+
 /**
  * @brief Cortex-M3 Vector Table for STM32F103.
- * 
+ *
  * IMPORTANT SYNTAX FIX:
  * 'void (* const vector_table[])(void)' means:
  * An array of CONST POINTERS to functions returning VOID.
@@ -74,7 +76,6 @@ void (* const g_isr_vector[])(void) = {
 
     /* --- External Interrupts (IRQ 0..67) --- */
     /* Index = 16 + IRQ_Number */
-    
     [16] = Default_Handler,                /* WWDG (IRQ 0) */
     [17] = PVD_IRQHandler,                 /* PVD (IRQ 1) */
     [18] = Default_Handler,                /* TAMPER (IRQ 2) */
@@ -114,14 +115,15 @@ void (* const g_isr_vector[])(void) = {
     [52] = Default_Handler,                /* I2C2_ER (IRQ 36) */
     [53] = Default_Handler,                /* SPI1 (IRQ 37) */
     [54] = Default_Handler,                /* SPI2 (IRQ 38) */
-    [55] = Default_Handler,                /* USART1 (IRQ 39) - TODO: Add when UART driver ready */
+    [55] = USART1_IRQHandler,              /* USART1 (IRQ 39) */
     [56] = Default_Handler,                /* USART2 (IRQ 40) */
     [57] = Default_Handler,                /* USART3 (IRQ 41) */
     [58] = Default_Handler,                /* EXTI15_10 (IRQ 42) */
     [59] = Default_Handler,                /* RTCAlarm (IRQ 43) */
     [60] = Default_Handler,                /* USBWakeUp (IRQ 44) */
+
     /* Pad remaining vectors up to typical max size */
-    [61 ... 83] = Default_Handler          
+    [61 ... 83] = Default_Handler
 };
 
 /**
@@ -132,6 +134,7 @@ void Reset_Handler(void)
     /* 1. Copy initialized data from Flash to RAM (.data section) */
     uint32_t *src = &_sidata;
     uint32_t *dst = &_sdata;
+
     while (dst < &_edata) {
         *dst++ = *src++;
     }

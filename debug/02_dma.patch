@@ -1,0 +1,83 @@
+--- src/platform/stm32f1/adc_dma.c
++++ src/platform/stm32f1/adc_dma.c
+@@ -5,10 +5,11 @@
+ #define REG_RCC_AHBENR       (*(volatile uint32_t *)(REG_RCC_BASE + 0x14UL))
+ #define REG_RCC_APB2ENR      (*(volatile uint32_t *)(REG_RCC_BASE + 0x18UL))
++#define REG_RCC_APB1ENR      (*(volatile uint32_t *)(REG_RCC_BASE + 0x1CUL))
+ #define REG_RCC_CFGR         (*(volatile uint32_t *)(REG_RCC_BASE + 0x04UL))
+ 
+ #define REG_GPIOA_BASE       0x40010800UL
+ #define REG_GPIOA_CRL        (*(volatile uint32_t *)(REG_GPIOA_BASE + 0x00UL))
+ 
+ #define REG_DMA1_BASE        0x40020000UL
+ #define REG_DMA1_ISR         (*(volatile uint32_t *)(REG_DMA1_BASE + 0x00UL))
+@@ -16,4 +17,10 @@
+ #define REG_DMA1_CMAR1       (*(volatile uint32_t *)(REG_DMA1_BASE + 0x14UL))
++
++#define REG_TIM2_BASE        0x40000000UL
++#define REG_TIM2_CR1         (*(volatile uint32_t *)(REG_TIM2_BASE + 0x00UL))
++#define REG_TIM2_CR2         (*(volatile uint32_t *)(REG_TIM2_BASE + 0x04UL))
++#define REG_TIM2_EGR         (*(volatile uint32_t *)(REG_TIM2_BASE + 0x14UL))
++#define REG_TIM2_PSC         (*(volatile uint32_t *)(REG_TIM2_BASE + 0x28UL))
++#define REG_TIM2_ARR         (*(volatile uint32_t *)(REG_TIM2_BASE + 0x2CUL))
+ 
+ #define REG_ADC1_BASE        0x40012400UL
+@@ -53,11 +60,3 @@
+     REG_DMA1_CCR1 |= 1UL;
+-
+-    /* Start one regular conversion scan.
+-     * CONT is deliberately not used: this clone does not latch ADC_CR2 bit9.
+-     */
+-    /* Workaround для перемаркированного клона:
+-      * Чтобы перезапустить автомат регулярного SCAN-преобразования без режима CONT,
+-      * необходимо гарантировать фронт на бите SWSTART относительно поднятого ADON.
+-      * Для этого сбрасываем CR2, а затем атомарно поднимаем SWSTART + DMA + ADON.
+-      */
+-    uint32_t cr2_val = REG_ADC1_CR2;
+-    cr2_val &= ~(1UL << 22u); /* Явно гасим SWSTART */
+-    REG_ADC1_CR2 = cr2_val;
+-    
+-    REG_ADC1_CR2 = cr2_val | (1UL << 22u) | (1UL << 8u) | (1UL << 0u); /* SWSTART + DMA + ADON */
+-
++    /* В режиме таймерного триггера ручной взвод SWSTART здесь больше не требуется. */
+     REG_NVIC_ISER0 |= NVIC_IRQ_11_DMA1_CH1;
+@@ -87,4 +86,5 @@
+     REG_RCC_AHBENR |= (1UL << 0u); /* DMA1EN */
+     REG_RCC_APB2ENR |= (1UL << 2u) | (1UL << 9u) | (1UL << 10u); /* IOPAEN, ADC1EN, ADC2EN */
++    REG_RCC_APB1ENR |= (1UL << 0u); /* TIM2EN */
+ 
+     /* ADC prescaler: ADCCLK = PCLK2 / 6.
+@@ -94,4 +94,11 @@
+     REG_RCC_CFGR |= (2UL << 14u);
+ 
++    /* 1.5 Настройка аппаратного триггера TIM2 на частоту 1 кГц (1 мс) */
++    REG_TIM2_PSC = 7u;
++    REG_TIM2_ARR = 999u;
++    REG_TIM2_CR2 &= ~(7UL << 4u);
++    REG_TIM2_CR2 |= (2UL << 4u); /* MMS = 010: Master Mode = Update (TRGO) */
++
+     /* 2. PA0, PA1, PA2 as analog inputs.
+      * STM32F1 GPIO CRL nibble for analog input is 0x2.
+@@ -135,4 +142,7 @@
+     REG_ADC1_SQR3 = (0UL << 0u) | (1UL << 5u) | (2UL << 10u);     /* SQ1=ch0, SQ2=ch1, SQ3=ch2 */
+     REG_ADC1_CR1 |= (1UL << 8u); /* SCAN mode */
++
++    REG_ADC1_CR2 &= ~(7UL << 17u);
++    REG_ADC1_CR2 |= (3UL << 17u) | (1UL << 20u); /* EXTSEL = 011 (TIM2_TRGO), EXTTRIG = 1 */
+ 
+     /* 5. Power up and calibrate.
+@@ -171,4 +181,8 @@
+     /* 6. Start first single-scan acquisition. */
+     adc_hardware_kick_scan();
+ 
++    /* 7. Запуск таймера триггеров */
++    REG_TIM2_EGR |= (1UL << 0u);
++    REG_TIM2_CR1 |= (1UL << 0u); /* CEN = 1 */
++
+     return true;
+@@ -177,3 +191,4 @@
+ {
+-    REG_DMA1_CCR1 &= ~1UL; /* Halt DMA1 Channel 1 stream */
++    REG_TIM2_CR1 &= ~1UL;  /* Выключить таймер триггеров */
++    REG_DMA1_CCR1 &= ~1UL; /* Halt DMA1 Channel 1 stream */
+     REG_ADC1_CR2 &= ~(1UL << 0u); /* Put ADC1 peripheral into deep sleep */
