@@ -1,4 +1,4 @@
-name: Climate Node CI
+name: AIO Node CI
 
 on:
   push:
@@ -8,22 +8,28 @@ on:
 
 jobs:
   host-tests:
-    name: Host Unit Tests
+    name: Host Unit Tests (PC SiL)
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake gcc python3
-      
+          sudo apt-get install -y cmake gcc cppcheck python3
+
+      - name: Static analysis (Cppcheck + MISRA C:2012 addon)
+        run: |
+          cppcheck --addon=misra.json --error-exitcode=1 \
+            -I include src/core/
+
       - name: Configure CMake (Host)
         run: |
           cmake -B build \
-            -DCLIMATE_BUILD_HOST_TESTS=ON \
-            -DCLIMATE_BUILD_HOST_RUNNER=ON \
+            -DAIO_BUILD_HOST_TESTS=ON \
+            -DAIO_BUILD_HOST_SIMULATOR=ON \
+            -DAIO_BUILD_MCU=OFF \
             -DCMAKE_BUILD_TYPE=Debug
 
       - name: Build Host Targets
@@ -33,9 +39,9 @@ jobs:
         run: ctest --test-dir build --output-on-failure
 
   mcu-build:
-    name: STM32 Firmware Build
+    name: STM32 Firmware Build (HiL target)
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
 
@@ -48,26 +54,25 @@ jobs:
         run: |
           cmake -B build-mcu \
             -DCMAKE_TOOLCHAIN_FILE=cmake/arm-none-eabi.cmake \
-            -DCLIMATE_BUILD_MCU=ON \
-            -DCLIMATE_BUILD_HOST_TESTS=OFF \
-            -DCLIMATE_BUILD_HOST_RUNNER=OFF \
+            -DAIO_BUILD_MCU=ON \
+            -DAIO_BUILD_HOST_TESTS=OFF \
             -DCMAKE_BUILD_TYPE=Release
 
       - name: Build MCU Firmware
         run: cmake --build build-mcu -j$(nproc)
 
-      - name: Check Memory Usage
+      - name: Report Memory Footprint
         run: |
-          arm-none-eabi-size build-mcu/climate_fw
+          arm-none-eabi-size build-mcu/aio_fw
           echo "--- Artifacts ---"
-          ls -lh build-mcu/*.hex build-mcu/*.bin || true
+          ls -lh build-mcu/aio_fw.* || true
 
       - name: Upload Firmware Artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: climate-fw-stm32f103
+          name: aio-fw-stm32f103
           path: |
-            build-mcu/climate_fw.hex
-            build-mcu/climate_fw.bin
-            build-mcu/climate_fw.map
+            build-mcu/aio_fw.hex
+            build-mcu/aio_fw.bin
+            build-mcu/aio_fw.map
