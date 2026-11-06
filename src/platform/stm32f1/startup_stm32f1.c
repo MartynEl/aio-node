@@ -47,12 +47,14 @@ void PVD_IRQHandler(void);
 void USART1_IRQHandler(void);
 
 /**
- * @brief Cortex-M3 Vector Table for STM32F103.
+ * @brief Cortex-M3 Vector Table for STM32F103 medium-density.
  *
- * IMPORTANT SYNTAX FIX:
- * 'void (* const vector_table[])(void)' means:
- * An array of CONST POINTERS to functions returning VOID.
- * This places the pointers themselves in Flash (read-only), which is correct.
+ * IMPORTANT:
+ * STM32F103 USART1 is IRQ 37.
+ * Vector index = 16 + IRQ = 53.
+ *
+ * Previous table incorrectly placed USART1 at index 55,
+ * which corresponds to USART3 / IRQ 39.
  */
 __attribute__((section(".isr_vector"), used))
 void (* const g_isr_vector[])(void) = {
@@ -64,17 +66,17 @@ void (* const g_isr_vector[])(void) = {
     [4]  = MemManage_Handler,              /* Memory Management Fault */
     [5]  = BusFault_Handler,               /* Bus Fault */
     [6]  = UsageFault_Handler,             /* Usage Fault */
-    [7]  = 0u,                             /* Reserved */
-    [8]  = 0u,                             /* Reserved */
-    [9]  = 0u,                             /* Reserved */
-    [10] = 0u,                             /* Reserved */
+    [7]  = 0,                              /* Reserved */
+    [8]  = 0,                              /* Reserved */
+    [9]  = 0,                              /* Reserved */
+    [10] = 0,                              /* Reserved */
     [11] = SVCall_Handler,                 /* Supervisor Call */
     [12] = DebugMon_Handler,               /* Debug Monitor */
-    [13] = 0u,                             /* Reserved */
+    [13] = 0,                              /* Reserved */
     [14] = PendSV_Handler,                 /* Pendable Service Request */
     [15] = SysTick_Handler,                /* System Tick Timer */
 
-    /* --- External Interrupts (IRQ 0..67) --- */
+    /* --- External Interrupts (IRQ 0..42 for STM32F103 MD) --- */
     /* Index = 16 + IRQ_Number */
     [16] = Default_Handler,                /* WWDG (IRQ 0) */
     [17] = PVD_IRQHandler,                 /* PVD (IRQ 1) */
@@ -94,36 +96,34 @@ void (* const g_isr_vector[])(void) = {
     [31] = Default_Handler,                /* DMA1 Channel 5 (IRQ 15) */
     [32] = Default_Handler,                /* DMA1 Channel 6 (IRQ 16) */
     [33] = Default_Handler,                /* DMA1 Channel 7 (IRQ 17) */
-    [34] = Default_Handler,                /* ADC1 (IRQ 18) */
-    [35] = Default_Handler,                /* ADC2 (IRQ 19) */
-    [36] = Default_Handler,                /* ADC3 (IRQ 20) */
-    [37] = Default_Handler,                /* CAN_TX (IRQ 21) */
-    [38] = Default_Handler,                /* CAN_RX0 (IRQ 22) */
-    [39] = Default_Handler,                /* CAN_RX1 (IRQ 23) */
-    [40] = Default_Handler,                /* CAN_SCE (IRQ 24) */
-    [41] = Default_Handler,                /* EXTI9_5 (IRQ 25) */
-    [42] = Default_Handler,                /* TIM1_BRK (IRQ 26) */
-    [43] = Default_Handler,                /* TIM1_UP (IRQ 27) */
-    [44] = Default_Handler,                /* TIM1_TRG_COM (IRQ 28) */
-    [45] = Default_Handler,                /* TIM1_CC (IRQ 29) */
-    [46] = Default_Handler,                /* TIM2 (IRQ 30) */
-    [47] = Default_Handler,                /* TIM3 (IRQ 31) */
-    [48] = Default_Handler,                /* TIM4 (IRQ 32) */
-    [49] = Default_Handler,                /* I2C1_EV (IRQ 33) */
-    [50] = Default_Handler,                /* I2C1_ER (IRQ 34) */
-    [51] = Default_Handler,                /* I2C2_EV (IRQ 35) */
-    [52] = Default_Handler,                /* I2C2_ER (IRQ 36) */
-    [53] = Default_Handler,                /* SPI1 (IRQ 37) */
-    [54] = Default_Handler,                /* SPI2 (IRQ 38) */
-    [55] = USART1_IRQHandler,              /* USART1 (IRQ 39) */
-    [56] = Default_Handler,                /* USART2 (IRQ 40) */
-    [57] = Default_Handler,                /* USART3 (IRQ 41) */
-    [58] = Default_Handler,                /* EXTI15_10 (IRQ 42) */
-    [59] = Default_Handler,                /* RTCAlarm (IRQ 43) */
-    [60] = Default_Handler,                /* USBWakeUp (IRQ 44) */
+    [34] = Default_Handler,                /* ADC1_2 (IRQ 18) */
+    [35] = Default_Handler,                /* USB_HP_CAN_TX (IRQ 19) */
+    [36] = Default_Handler,                /* USB_LP_CAN_RX0 (IRQ 20) */
+    [37] = Default_Handler,                /* CAN_RX1 (IRQ 21) */
+    [38] = Default_Handler,                /* CAN_SCE (IRQ 22) */
+    [39] = Default_Handler,                /* EXTI9_5 (IRQ 23) */
+    [40] = Default_Handler,                /* TIM1_BRK (IRQ 24) */
+    [41] = Default_Handler,                /* TIM1_UP (IRQ 25) */
+    [42] = Default_Handler,                /* TIM1_TRG_COM (IRQ 26) */
+    [43] = Default_Handler,                /* TIM1_CC (IRQ 27) */
+    [44] = Default_Handler,                /* TIM2 (IRQ 28) */
+    [45] = Default_Handler,                /* TIM3 (IRQ 29) */
+    [46] = Default_Handler,                /* TIM4 (IRQ 30) */
+    [47] = Default_Handler,                /* I2C1_EV (IRQ 31) */
+    [48] = Default_Handler,                /* I2C1_ER (IRQ 32) */
+    [49] = Default_Handler,                /* I2C2_EV (IRQ 33) */
+    [50] = Default_Handler,                /* I2C2_ER (IRQ 34) */
+    [51] = Default_Handler,                /* SPI1 (IRQ 35) */
+    [52] = Default_Handler,                /* SPI2 (IRQ 36) */
+    [53] = USART1_IRQHandler,              /* USART1 (IRQ 37) */
+    [54] = Default_Handler,                /* USART2 (IRQ 38) */
+    [55] = Default_Handler,                /* USART3 (IRQ 39) */
+    [56] = Default_Handler,                /* EXTI15_10 (IRQ 40) */
+    [57] = Default_Handler,                /* RTCAlarm (IRQ 41) */
+    [58] = Default_Handler,                /* USBWakeUp (IRQ 42) */
 
     /* Pad remaining vectors up to typical max size */
-    [61 ... 83] = Default_Handler
+    [59 ... 83] = Default_Handler
 };
 
 /**

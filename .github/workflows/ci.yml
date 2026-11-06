@@ -1,0 +1,73 @@
+name: Climate Node CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  host-tests:
+    name: Host Unit Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake gcc python3
+      
+      - name: Configure CMake (Host)
+        run: |
+          cmake -B build \
+            -DCLIMATE_BUILD_HOST_TESTS=ON \
+            -DCLIMATE_BUILD_HOST_RUNNER=ON \
+            -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build Host Targets
+        run: cmake --build build -j$(nproc)
+
+      - name: Run Unit Tests
+        run: ctest --test-dir build --output-on-failure
+
+  mcu-build:
+    name: STM32 Firmware Build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ARM Toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eabi
+
+      - name: Configure CMake (MCU)
+        run: |
+          cmake -B build-mcu \
+            -DCMAKE_TOOLCHAIN_FILE=cmake/arm-none-eabi.cmake \
+            -DCLIMATE_BUILD_MCU=ON \
+            -DCLIMATE_BUILD_HOST_TESTS=OFF \
+            -DCLIMATE_BUILD_HOST_RUNNER=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build MCU Firmware
+        run: cmake --build build-mcu -j$(nproc)
+
+      - name: Check Memory Usage
+        run: |
+          arm-none-eabi-size build-mcu/climate_fw
+          echo "--- Artifacts ---"
+          ls -lh build-mcu/*.hex build-mcu/*.bin || true
+
+      - name: Upload Firmware Artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: climate-fw-stm32f103
+          path: |
+            build-mcu/climate_fw.hex
+            build-mcu/climate_fw.bin
+            build-mcu/climate_fw.map

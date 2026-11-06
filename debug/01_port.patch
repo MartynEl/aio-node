@@ -1,7 +1,0 @@
---- include/platform/adc_port.h
-+++ include/platform/adc_port.h
-@@ -16,3 +16,3 @@
-  */
--#define ADC_SAMPLES_PER_CHANNEL 1u
-+#define ADC_SAMPLES_PER_CHANNEL 16u
- 

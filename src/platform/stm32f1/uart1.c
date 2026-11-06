@@ -1,10 +1,10 @@
 /* src/platform/stm32f1/uart1.c */
 /*
- * Stage 3.0: USART1 full-duplex-capable driver for Modbus RTU slave over RS-485.
+ * Stage 3.0: USART1 Modbus RTU slave driver for STM32F103.
  *
  * Hardware assumptions:
- *   PA9  -> USART1_TX  -> MAX3485 DI
- *   PA10 <- USART1_RX  <- MAX3485 RO
+ *   PA9  -> USART1_TX  -> MAX3485 DI / CH340G RXD
+ *   PA10 <- USART1_RX  <- MAX3485 RO / CH340G TXD
  *   PA11 -> MAX3485 DE and /RE tied together
  *
  * Clock assumption:
@@ -13,6 +13,10 @@
  * Baud:
  *   9600 8N1 for industrial bring-up.
  *   BRR = 0x341 at PCLK2 = 8 MHz.
+ *
+ * Important STM32F103 fact:
+ *   USART1 global interrupt is IRQ 37.
+ *   Therefore NVIC ISER1/ISPR1 bit is 5, not 7.
  */
 
 #include "platform/platform.h"
@@ -34,7 +38,6 @@ void USART1_IRQHandler(void);
 #define RCC_IOPAEN            (1UL << 2u)
 #define RCC_USART1EN          (1UL << 14u)
 
-#define RCC_GPIOA_RST         (1UL << 2u)
 #define RCC_USART1_RST        (1UL << 14u)
 
 /* --- GPIOA --- */
@@ -43,22 +46,28 @@ void USART1_IRQHandler(void);
 #define REG_GPIOA_BSRR        (*(volatile uint32_t *)(REG_GPIOA_BASE + 0x10UL))
 
 /*
- * PA9  = USART1_TX
- * PA10 = USART1_RX
- * PA11 = MAX3485 DE / /RE direction control
+ * GPIO CRH nibble encoding for STM32F1:
+ *   bits [3:2] = CNF
+ *   bits [1:0] = MODE
  *
- * Pins 8..15 are configured in CRH.
- * Pin number inside CRH nibble index:
- *   PA9  -> (9 - 8)  = 1 -> shift 4
- *   PA10 -> (10 - 8) = 2 -> shift 8
- *   PA11 -> (11 - 8) = 3 -> shift 12
+ * PA9  = USART1_TX:
+ *   Alternate function push-pull, 10 MHz
+ *   CNF = 10, MODE = 01 -> 0x9
+ *
+ * PA10 = USART1_RX:
+ *   Input with pull-up / pull-down
+ *   CNF = 10, MODE = 00 -> 0x8
+ *
+ * PA11 = MAX3485 DE / /RE direction control:
+ *   General purpose output push-pull, 10 MHz
+ *   CNF = 00, MODE = 01 -> 0x1
  */
 #define TX_PIN_SHIFT          4u
 #define RX_PIN_SHIFT          8u
 #define DIR_PIN_SHIFT         12u
 
 #define PIN_AF_PP_10MHZ       0x9UL
-#define PIN_INPUT_PULL_UP     0x2UL
+#define PIN_INPUT_PULL_UP     0x8UL
 #define PIN_GP_PP_10MHZ       0x1UL
 
 #define RX_PIN_SET_BIT        (1UL << 10u)
@@ -105,14 +114,18 @@ void USART1_IRQHandler(void);
 /* --- NVIC --- */
 #define REG_NVIC_BASE         0xE000E100UL
 #define REG_NVIC_ISER1        (*(volatile uint32_t *)(REG_NVIC_BASE + 0x04UL))
+#define REG_NVIC_ICPR1        (*(volatile uint32_t *)(REG_NVIC_BASE + 0x184UL))
 
 /*
- * USART1 is IRQ 39.
- * ISER0 covers IRQ 0..31.
- * ISER1 covers IRQ 32..63.
- * IRQ 39 => ISER1 bit (39 - 32) = bit 7.
+ * STM32F103 USART1 is IRQ 37.
+ *
+ * NVIC register layout:
+ *   ISER0 / ISPR0 / ICPR0 cover IRQ 0..31
+ *   ISER1 / ISPR1 / ICPR1 cover IRQ 32..63
+ *
+ * IRQ 37 => ISER1/ISPR1/ICPR1 bit (37 - 32) = bit 5.
  */
-#define NVIC_USART1_BIT       (1UL << 7u)
+#define NVIC_USART1_BIT       (1UL << 5u)
 
 /* --- RX ring buffer --- */
 #define UART_RX_RING_SIZE     256u
@@ -164,9 +177,13 @@ void uart1_init(void)
     /* Ensure PCLK2 is not divided: SYSCLK = HSI 8 MHz => PCLK2 = 8 MHz. */
     REG_RCC_CFGR &= ~(7UL << 11u);
 
-    /* Reset GPIOA and USART1 for deterministic start state. */
-    REG_RCC_APB2RSTR |= (RCC_GPIOA_RST | RCC_USART1_RST);
-    REG_RCC_APB2RSTR &= ~(RCC_GPIOA_RST | RCC_USART1_RST);
+    /*
+     * Reset only USART1.
+     * Do not reset whole GPIOA here: GPIOA is shared with ADC/PWM pins
+     * and resetting it from UART driver is an unnecessary side effect.
+     */
+    REG_RCC_APB2RSTR |= RCC_USART1_RST;
+    REG_RCC_APB2RSTR &= ~RCC_USART1_RST;
 
     /* Enable AFIO, GPIOA and USART1 clocks on APB2. */
     REG_RCC_APB2ENR |= (RCC_AFIOEN | RCC_IOPAEN | RCC_USART1EN);
@@ -206,7 +223,20 @@ void uart1_init(void)
                       USART_CR1_RXNEIE |
                       USART_CR1_UE);
 
-    /* Enable USART1 interrupt in NVIC: IRQ 39 => ISER1 bit 7. */
+    /*
+     * Clear any pending USART status flags.
+     * On STM32F1 reading SR then DR clears ORE/NE/FE/PE and RXNE.
+     */
+    (void)REG_USART1_SR;
+    (void)REG_USART1_DR;
+
+    /*
+     * Clear stale NVIC pending bit for USART1 before enabling the interrupt.
+     * USART1 = IRQ 37 => ICPR1 bit 5.
+     */
+    REG_NVIC_ICPR1 = NVIC_USART1_BIT;
+
+    /* Enable USART1 interrupt in NVIC: IRQ 37 => ISER1 bit 5. */
     REG_NVIC_ISER1 |= NVIC_USART1_BIT;
 }
 
@@ -304,6 +334,7 @@ void USART1_IRQHandler(void)
          * This clears ORE/NE/FE/PE and RXNE.
          */
         dr = REG_USART1_DR;
+        (void)dr;
 
         if ((sr & USART_SR_RXNE) != 0u) {
             uart1_rx_push((uint8_t)(dr & 0xFFu));

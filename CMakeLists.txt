@@ -71,7 +71,7 @@ if(AIO_BUILD_HOST_SIMULATOR)
         src/core/platform_stubs.c  # Fixed via architecture review linkage audit
         src/service/logger.c
     )
-    target_link_libraries(aio_host PRIVATE aio_core)
+     target_link_libraries(aio_host PRIVATE aio_core)
     target_compile_options(aio_host PRIVATE -Wall -Wextra -Wpedantic -Wshadow)
     if(AIO_WERROR)
         target_compile_options(aio_host PRIVATE -Werror)
@@ -109,6 +109,8 @@ if(AIO_BUILD_MCU)
         src/platform/stm32f1/uart1.c
     )
     
+    target_compile_definitions(aio_fw PRIVATE AIO_UART_BOOT_BANNER)
+
     target_link_libraries(aio_fw PRIVATE aio_core)
     target_compile_options(aio_fw PRIVATE -Wall -Wextra -Wshadow)
     if(AIO_WERROR)
