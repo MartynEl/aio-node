@@ -53,7 +53,7 @@ bool wl_service_init(modbus_reg_map_t *regs)
     if (regs == NULL) {
         return false;
     }
-    nv_config_t newest_config;
+    nv_config_t newest_config = {0};
     uint32_t max_seq = 0u;
     bool found_any_valid = false;
 
