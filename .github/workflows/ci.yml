@@ -52,11 +52,13 @@ jobs:
 
       - name: Configure CMake (MCU)
         run: |
+          rm -rf build-mcu
           cmake -B build-mcu \
-            -DCMAKE_TOOLCHAIN_FILE=cmake/arm-none-eabi.cmake \
-            -DAIO_BUILD_MCU=ON \
-            -DAIO_BUILD_HOST_TESTS=OFF \
-            -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_TOOLCHAIN_FILE=cmake/arm-none-eabi.cmake \
+          -DAIO_BUILD_MCU=ON \
+          -DAIO_BUILD_HOST_TESTS=OFF \
+          -DAIO_BUILD_HOST_SIMULATOR=OFF \
+          -DCMAKE_BUILD_TYPE=Release
 
       - name: Build MCU Firmware
         run: cmake --build build-mcu -j$(nproc)
