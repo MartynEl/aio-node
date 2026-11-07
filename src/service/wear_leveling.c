@@ -63,7 +63,7 @@ bool wl_service_init(modbus_reg_map_t *regs)
         uint32_t offset = slot * WL_CONFIG_SIZE;
         
         /* MISRA Compliance: Use a naturally aligned 32-bit array buffer */
-        uint32_t aligned_word_buf[sizeof(nv_config_t) / 4u];
+        uint32_t aligned_word_buf[(sizeof(nv_config_t) + 3u) / 4u];
         size_t words_len = sizeof(nv_config_t) / 4u;
 
         bool read_ok = platform_flash_read_row(offset, aligned_word_buf, words_len);
@@ -111,7 +111,7 @@ bool wl_service_save(const modbus_reg_map_t *regs)
     for (uint32_t slot = 0u; slot < WL_MAX_SLOTS_COUNT; ++slot) {
         nv_config_t temp_cfg;
         uint32_t offset = slot * WL_CONFIG_SIZE;
-        uint32_t aligned_word_buf[sizeof(nv_config_t) / 4u];
+        uint32_t aligned_word_buf[(sizeof(nv_config_t) + 3u) / 4u];
         size_t words_len = sizeof(nv_config_t) / 4u;
         
         bool read_ok = platform_flash_read_row(offset, aligned_word_buf, words_len);
@@ -171,7 +171,7 @@ bool wl_service_save(const modbus_reg_map_t *regs)
 
     /* Step 4: Stream compiled block via safely aligned local intermediate memory buffer row */
     uint32_t target_offset = target_slot * WL_CONFIG_SIZE;
-    uint32_t aligned_write_buf[sizeof(nv_config_t) / 4u];
+    uint32_t aligned_write_buf[(sizeof(nv_config_t) + 3u) / 4u];
     size_t write_words_len = sizeof(nv_config_t) / 4u;
 
     (void)memcpy(aligned_write_buf, &outbound_cfg, sizeof(nv_config_t));
