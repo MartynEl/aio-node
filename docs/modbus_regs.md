@@ -2,7 +2,7 @@
 
 **Device Configuration:**
 *   **Default Protocol Status:** Modbus RTU Slave, Slave ID = 1 (Configurable)
-*   **Baud Rate:** 115200 bps
+*   **Baud Rate:** **9600 8N1**. 115200 is reserved for later stability testing.
 *   **Data Format:** 8-N-1 (8 Data bits, No parity, 1 Stop bit)
 *   **Supported Function Codes:** 
     *   `0x03` — Read Holding Registers

@@ -310,24 +310,61 @@
   и аппаратном дребезге ползунка (провал сырого r до 0004) фильтр f=2299 полностью заблокировал 
   выброс, защитив силовой контур. Веха АЦП полностью и успешно закрыта.
 
-* Шаг 30: Stage 3.0 — RS-485 Modbus Communication Verified
-  * Успешно реализована связь по протоколу Modbus RTU
-  * Верифицирован полный диапазон АЦП (0-3565)
-  * Добавлена фильтрация данных
-  * Обнаружена и документирована особенность маркировки модуля RS-485 (TXD=RO, RXD=DI)
+* Шаг 30: Stage 3.0 — Modbus RTU over RS-485 verified end-to-end
 
-  Изменения в коде:
-  * src/platform/stm32f1/uart1.c — реализация RS-485
-  * src/platform/stm32f1/startup_stm32f1.c — настройки периферии
-  * Добавлен modbus_debug.py для тестирования
-  * Обновлен README.md с описанием особенностей подключения
+  Подтверждено на HiL-стенде:
+  - STM32F103 Blue Pill / перемаркированный кристалл, device id 0x20030410.
+  - MAX3485 half-duplex RS-485 transceiver.
+  - USB-RS485 converter.
+  - Python pymodbus master.
+  - Baudrate: 9600 8N1.
+  - Slave ID: 1.
+  - Function code: 0x03 Read Holding Registers.
+  - Register map:
+    0x0000 = ADC_CH0_RAW
+    0x0001 = ADC_CH0_FILTERED
 
-  Ключевые достижения этапа:
-  * Стабильная связь на 9600 бод
-  * Корректная работа DE/RE управления
-  * Успешное прохождение эхо-тестов
-  * Валидация CRC-контрольной суммы
-  * Линейность показаний АЦП подтверждена
+  Физический слой RS-485:
+  - PA9 / USART1_TX -> module RXD / DI
+  - PA10 / USART1_RX <- module TXD / RO
+  - PA11 -> module EN, управляющий DE и /RE
+  - A/B подключены к USB-RS485 converter
+  - общая земля STM32 / MAX3485 / converter подтверждена
+
+  Важная особенность железа:
+  - На используемом MAX3485-модуле маркировка TXD/RXD обратная относительно типичного ожидания:
+    module TXD = RO
+    module RXD = DI
+  - Это задокументировано в README, чтобы избежать повторной ошибки подключения.
+
+  Modbus-протокол:
+  - Master TX:
+    01 03 00 00 00 02 C4 0B
+  - Slave RX:
+    01 03 04 HH LL HH LL CRC_L CRC_H
+  - Byte count 0x04 присутствует в FC=03 response.
+  - CRC16 валиден.
+  - pymodbus принимает ответ без ModbusIOException.
+
+  Наблюдаемая аналоговая часть:
+  - При плавном движении потенциометра значения меняются в диапазоне примерно:
+    raw=0005..3569
+    filtered=0004..3565
+  - Фильтр Median + EMA демонстрирует ожидаемое поведение:
+    сглаживает raw, иногда отстаёт при движении, сходится при стабилизации ручки.
+
+  Ключевые firmware-исправления этапа:
+  - USART1 CR1 = RE | TE | RXNEIE | UE = 0x202C.
+  - USART1 RX переведён на прерывание + ring buffer.
+  - Вектор USART1 исправлен:
+    STM32F103 USART1 = IRQ 37, vector index 53, не 55.
+  - NVIC ISER1 bit 5 включён для USART1, не bit 7.
+  - FC=03 response теперь содержит обязательный byte count.
+  - Modbus response реально отправляется через uart1_write_raw().
+  - Управление направлением MAX3485 выведено на PA11.
+  - PA8 не используется для RS-485 EN, потому что PA8 занят под TIM1_CH1 PWM.
+
+  Stage 3.0 закрыт на уровне functional verification.
 
 * Шаг 31: Stage 3.1 — Подготовка релиза v1.2
   * Создан Python-скрипт modbus_logger.py для логирования данных

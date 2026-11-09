@@ -1,8 +1,8 @@
 # AIO-Node: Asynchronous Industrial DAQ & Load Control Module
 
-![CI Status](https://img.shields.io/badge/build-passing-brightgreen)
-![License](https://img.shields.io/badge/license-MIT-blue)
-![Tests](https://img.shields.io/badge/tests-3%2F3-green)
+![CI Status](https://github.com)
+![License](https://shields.io)
+![Latest Tag](https://shields.io)
 
 Embedded firmware for STM32F103 targeting industrial data acquisition and load control. The project demonstrates industrial-style patterns: strict layering, deterministic scheduling, and hardware abstraction without vendor HAL.
 
@@ -115,17 +115,17 @@ Supported Functions: `0x03` Read Holding Registers, `0x06` Write Single Register
 
 ## 📸 Hardware Test Bench
 
-Real-world validation setup used for debugging and HiL testing. The photo confirms hands-on hardware integration, including peripheral wiring and RS-485 communication.
+Real-world validation setup used for debugging and HiL testing. The photo confirms hands-on hardware integration, including peripheral wiring, RS-485 communication and SWD programming.
 
-![Testing stand AIO-Node: mock board, RS-485 module, ZK-U-85 converter](/assets/aio-node-bench.jpg)
+![HiL test bench: STM32F103 breadboard, MAX3485 RS-485 module, ZK-U-85 USB-RS485 converter, ST-Link V2](assets/aio-node-bench.jpg)
 
 *Key components in the photo:*
-- STM32F103-based board on a breadboard
-- RS-485 transceiver module
+- STM32F103 (Blue Pill form-factor) board on a breadboard
+- MAX3485 half-duplex RS-485 transceiver module
 - USB-to-RS485 converter (ZK-U-85)
-- Flat cable for peripheral connection
-- Rotary potentiometer (10 kΩ) — used for analog input validation and manual setpoint simulation during HiL testing.
-- Dragon figurine — just for fun
+- ST-Link V2 programmer/debugger (left on the desk), connected to the board SWD pins via the flat ribbon cable
+- 10 kΩ rotary potentiometer on PA0 — analog input validation and manual setpoint simulation during HiL testing
+- Dragon figurine — personal bench mascot
 
 ## 📊 Resource Footprint (STM32F103C8T6)
 
@@ -143,14 +143,16 @@ These metrics demonstrate efficient memory usage suitable for resource-constrain
 ## 🧪 Quality Assurance & Verification
 
 ### ✅ Automated Testing (CTest)
-The project includes a suite of unit and integration tests executed via CTest.
+The project contains 3 CTest suites:
 
-*What the tests cover:*
-- Modbus RTU frame parsing/validation
-- Fixed-point arithmetic correctness
-- Ring buffer boundary conditions
-- Scheduler timing accuracy
+| CTest suite | Binary | Internal test cases |
+|---|---:|---:|
+| filter | `test_filter` | 5 |
+| pid | `test_pid` | 4 |
+| wear_leveling | `test_wear_leveling` | 3 |
+| **Total** | **3 suites** | **12 cases** |
 
+`ctest --test-dir build --output-on-failure` reports suite-level results: **3/3 passed** when all internal test cases pass.
 ---
 
 ## 🔍 Real-World Debugging Case: The "Clone" Discovery
@@ -271,17 +273,42 @@ python3 modbus_logger.py -p /dev/ttyUSB0 -f data.csv -i 1
 * Ground loop isolation
 
 ### Hardware Interface
-- **UART1** is used for communication
-- **PA9** → RXD (module)
-- **PA10** → TXD (module)
-- **PA11** → EN (DE+/RE-)
+Current verified hardware configuration uses a MAX3485 half-duplex RS-485 transceiver module.
+
+Important: the used module has reversed signal labeling relative to the common MCU expectation:
+
+| Module label | Actual MAX3485 function |
+|---|---|
+| TXD | RO |
+| RXD | DI |
+
+Verified connection:
+
+| STM32F103 | MAX3485 module | Direction |
+|---|---|---|
+| PA9 / USART1_TX | RXD / DI | MCU TX → module input |
+| PA10 / USART1_RX | TXD / RO | module output → MCU RX |
+| PA11 | EN | controls DE and /RE |
+| 3V3 | VCC | power |
+| GND | GND | common ground |
+
+RS-485 bus:
+
+| MAX3485 | USB-RS485 converter |
+|---|---|
+| A | A |
+| B | B |
+| GND | GND |
+
+Common ground between STM32, MAX3485 and USB-RS485 converter is mandatory.
 
 ### Important Notes
-- The module has reversed pin labeling:
-  - TXD on the module = RO (receiver output)
-  - RXD on the module = DI (driver input)
-- Baud rate: 9600 baud
-- Half-duplex mode is used
+- Verified baudrate for Stage 3.0 is **9600 8N1**. 115200 is reserved for later stability testing.
+- PA11 is used for RS-485 direction control. PA8 is occupied by TIM1_CH1 PWM and must not be used for MAX3485 EN.
+- The module's TXD/RXD labeling is reversed relative to typical expectation: module TXD is RO, module RXD is DI.
+- EN must control both DE and /RE for correct half-duplex operation.
+- During transmission, firmware raises PA11, waits for USART1 TC, then lowers PA11 to return the transceiver to receive mode.
+- The current verification was performed on a HiL bench with STM32F103 Blue Pill, MAX3485 module and USB-RS485 converter.
 
 ### Example Output
 The sample output from the debug script is in the placeholder below.
@@ -289,9 +316,45 @@ The sample output from the debug script is in the placeholder below.
 ```python_output
 OK -> raw=0005 (0x0005) | filtered=0004 (0x0004)
 TX: 01 03 00 00 00 02 C4 0B
-RX: 01 03 04 00 04 00 04 BA 31
+RX: 01 03 04 0D ED 0D ED AC 77
 ```
+Decoded:
+  * Slave ID: 0x01
+  * Function: 0x03 Read Holding Registers
+  * Byte count: 0x04
+  * Register 0x0000: 0x0DED = 3565
+  * Register 0x0001: 0x0DED = 3565
+  * CRC16: valid
 
+Observed potentiometer range on the current HiL bench:
+  * raw: approximately 0005..3569
+  * filtered: approximately 0004..3565
+
+The theoretical 12-bit ADC range is 0..4095. The observed upper limit is specific to the current potentiometer wiring and bench conditions.
+
+### Verification Status
+
+Stage 3.0 Modbus RTU over RS-485 is functionally verified on the current HiL bench.
+
+Confirmed:
+
+- USART1 RX physical path through PA10.
+- USART1 interrupt path with correct vector index for IRQ 37.
+- Ring buffer capture and Modbus frame parsing.
+- FC=03 response includes mandatory byte count.
+- CRC16 validation by pymodbus master.
+- RS-485 direction control via PA11.
+- Live ADC raw and filtered registers observed through Modbus RTU.
+- Stable operation at 9600 8N1 on the current bench.
+
+Planned hardening:
+
+- negative Modbus tests: illegal address, unsupported function, broadcast behavior;
+- long-duration polling stress test;
+- rapid potentiometer movement stress test;
+- host regression test for FC=03 response format;
+- optional migration to 115200 after 9600 stability is proven;
+- FC=06 configuration write and persistence verification on real hardware.
 ---
 
 ## 📋 Documentation
